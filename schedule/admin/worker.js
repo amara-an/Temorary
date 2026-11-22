@@ -1328,7 +1328,7 @@ const PAGE = `<!doctype html>
         last++
       }
       const entries=[];const seen=new Set();
-      for(let r=first;r<last;r++){const cell=byRow[r];if(cell.r!==r||seen.has(cell))continue;seen.add(cell);entries.push(cell)}
+      for(let r=first;r<last;r++){const cell=byRow[r];if(cell.r!==r||seen.has(cell)||!dailyTemplate.cells.includes(cell))continue;seen.add(cell);entries.push(cell)}
       const total=last-first;
       if(entries.length){
         for(let i=0;i<entries.length;i++){
