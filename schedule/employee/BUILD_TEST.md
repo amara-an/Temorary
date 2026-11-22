@@ -15,3 +15,7 @@ Second build trigger for `schedule/employee/*`, with no Worker code changes.
 ## Watch-path retest 3
 
 Trigger Cloudflare build from `schedule/employee/BUILD_TEST.md` after checking the watch path. This edit does not change Worker runtime code.
+
+## Automatic production deployment test (2026-11-22)
+
+Trigger Cloudflare Workers Builds after switching the employee worker to `npx wrangler deploy --config schedule/employee/wrangler.jsonc`. This is a documentation-only edit; `worker.js` is unchanged.
