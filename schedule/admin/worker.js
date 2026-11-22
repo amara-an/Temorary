@@ -1,4 +1,4 @@
-// v20.14.4: remove redundant content toolbar, inline edit cells, expand daily sheet viewport.
+// v20.14.5: fill remaining screen with daily sheet editor; preserve inline input and A1 notes.
 // Cloudflare Worker v20.14.1: recover code/roster loading by decoupling leave quota schema; preserve daily editor.
 // D1 is authoritative for leave markers in both roster and XLSX; no DB migration needed.
 // Existing D1 records are retained; deployment does not import or remove records.
@@ -232,8 +232,9 @@ const PAGE = `<!doctype html>
 .daily-topbar .push{margin-left:auto}
 .daily-date-controls{display:flex;align-items:center;gap:7px}
 .daily-date-controls input{font-size:15px;min-height:37px;border:1px solid #b4c6d8;border-radius:6px;padding:3px 8px}
-.daily-sheet-wrap{width:100%;overflow:auto;height:calc(100dvh - 200px);max-height:none;min-height:450px;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
-.daily-sheet-wrap.editing{height:calc(100dvh - 285px);max-height:none;min-height:420px;touch-action:pan-x pan-y}
+#dailyTemplateView:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 32px);min-height:0;min-width:0;overflow:hidden}
+.daily-sheet-wrap{width:100%;flex:1 1 auto;overflow:auto;height:auto;max-height:none;min-height:0;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
+.daily-sheet-wrap.editing{height:auto;max-height:none;min-height:0;touch-action:pan-x pan-y}
 .daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .daily-grid td{font-size:13px}
@@ -274,14 +275,14 @@ const PAGE = `<!doctype html>
 .daily-name-code small{color:#6a7a89}
 #dailyPrintOnly{display:none}
 .daily-mini-status{font-size:12px;color:#506781;min-height:15px}
-@media(max-width:720px){.daily-topbar h1{width:100%}.daily-topbar .push{margin-left:0}.daily-sheet-wrap{height:calc(100dvh - 220px);max-height:none;min-height:350px;padding:3px}.daily-sheet-wrap.editing{height:calc(100dvh - 305px);max-height:none;min-height:320px}}
+@media(max-width:720px){.daily-topbar h1{width:100%}.daily-topbar .push{margin-left:0}.daily-sheet-wrap{height:auto;max-height:none;min-height:0;padding:3px}.daily-sheet-wrap.editing{height:auto;max-height:none;min-height:0}}
 @page{size:A4 portrait;margin:6mm}
 @media print{
  html,body,.app,.page,#dailyTemplateView{background:#fff!important;color:#111!important}
  .rail,#scheduleView,#codeView,#peopleView,.daily-topbar,.daily-edit-tools,.daily-content-tools,.daily-name-code,.daily-mini-status,#dailySheetWrap{display:none!important}
  .app{display:block!important;height:auto!important;min-height:0!important}
  .page{margin:0!important;padding:0!important;display:block!important;overflow:visible!important}
- #dailyTemplateView{display:block!important}
+ #dailyTemplateView{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important}
  #dailyPrintOnly{display:block!important;width:max-content;max-width:none;zoom:var(--daily-print-scale,0.85)}
  #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
  #dailyPrintOnly .daily-grid td{border:1px solid #333!important;background:#fff!important;color:#000!important;line-height:1.15}
