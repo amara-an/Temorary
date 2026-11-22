@@ -1,4 +1,4 @@
-// v20.14.3: clear legacy A1 header text; keep merged note cell and all other content.
+// v20.14.4: remove redundant content toolbar, inline edit cells, expand daily sheet viewport.
 // Cloudflare Worker v20.14.1: recover code/roster loading by decoupling leave quota schema; preserve daily editor.
 // D1 is authoritative for leave markers in both roster and XLSX; no DB migration needed.
 // Existing D1 records are retained; deployment does not import or remove records.
@@ -232,8 +232,8 @@ const PAGE = `<!doctype html>
 .daily-topbar .push{margin-left:auto}
 .daily-date-controls{display:flex;align-items:center;gap:7px}
 .daily-date-controls input{font-size:15px;min-height:37px;border:1px solid #b4c6d8;border-radius:6px;padding:3px 8px}
-.daily-sheet-wrap{width:100%;overflow:auto;max-height:calc(100dvh - 200px);min-height:340px;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
-.daily-sheet-wrap.editing{max-height:calc(100dvh - 370px);min-height:300px;touch-action:pan-x pan-y}
+.daily-sheet-wrap{width:100%;overflow:auto;height:calc(100dvh - 200px);max-height:none;min-height:450px;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
+.daily-sheet-wrap.editing{height:calc(100dvh - 285px);max-height:none;min-height:420px;touch-action:pan-x pan-y}
 .daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .daily-grid td{font-size:13px}
@@ -265,7 +265,8 @@ const PAGE = `<!doctype html>
 .daily-edit-tools,.daily-content-tools{border:1px solid #cbd7e6;background:#f7fafd;border-radius:9px;padding:9px;margin:9px 0;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .daily-edit-tools label,.daily-content-tools label{font-size:12px;color:#536a84;display:flex;align-items:center;gap:5px}
 .daily-edit-tools input,.daily-edit-tools select,.daily-content-tools input,.daily-content-tools select{min-height:34px;max-width:110px;border-radius:6px;border:1px solid #b4c6d8;padding:3px 6px}
-.daily-content-tools #dailyCellText{max-width:none;flex:1;min-width:140px}
+#dailyContentTools{display:none!important}
+.daily-grid .daily-inline-input{width:100%;min-width:0;min-height:30px;height:100%;padding:4px 7px;border:1px solid #2b69a7;border-radius:3px;background:#fff;color:#172b3f;font:inherit;box-sizing:border-box}
 .daily-edit-tools .daily-break{flex-basis:100%;height:0}
 .daily-edit-tools .daily-save-status{margin-left:auto;font-size:12px;color:#506781}
 .daily-name-code{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px;padding:9px;border:1px solid #cbd7e6;border-radius:8px;background:#f8fbfd}
@@ -273,7 +274,7 @@ const PAGE = `<!doctype html>
 .daily-name-code small{color:#6a7a89}
 #dailyPrintOnly{display:none}
 .daily-mini-status{font-size:12px;color:#506781;min-height:15px}
-@media(max-width:720px){.daily-topbar h1{width:100%}.daily-topbar .push{margin-left:0}.daily-sheet-wrap{min-height:300px;max-height:65dvh;padding:3px}.daily-sheet-wrap.editing{max-height:48dvh}.daily-content-tools #dailyCellText{width:100%;flex-basis:90%}}
+@media(max-width:720px){.daily-topbar h1{width:100%}.daily-topbar .push{margin-left:0}.daily-sheet-wrap{height:calc(100dvh - 220px);max-height:none;min-height:350px;padding:3px}.daily-sheet-wrap.editing{height:calc(100dvh - 305px);max-height:none;min-height:320px}}
 @page{size:A4 portrait;margin:6mm}
 @media print{
  html,body,.app,.page,#dailyTemplateView{background:#fff!important;color:#111!important}
@@ -335,7 +336,7 @@ const PAGE = `<!doctype html>
   </div>
   <section id="dailyTemplateView" hidden>
    <div class="daily-topbar">
-    <h1>일간 근무표</h1>
+    <h1>근무표</h1>
     <div class="daily-date-controls"><button class="btn" type="button" id="dailyPrev" aria-label="전날">◀</button><input type="date" id="dailyDate" aria-label="일간 근무표 날짜"><button class="btn" type="button" id="dailyNext" aria-label="다음 날">▶</button></div>
     <button class="btn push" type="button" id="dailyBack">월간으로</button>
     <button class="btn" type="button" id="dailyPrint">출력하기</button>
@@ -343,7 +344,7 @@ const PAGE = `<!doctype html>
     <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button>
    </div>
    <div class="daily-mini-status" id="dailyStatus" role="status"></div>
-   <div id="dailyContentTools" class="daily-content-tools">
+   <div id="dailyContentTools" hidden aria-hidden="true">
     <label>셀 <strong id="dailyContentCoord">A1</strong></label>
     <label>내용 <input id="dailyCellText" type="text" maxlength="140" aria-label="셀 내용"></label>
     <label>내용 적용 <select id="dailyTextScope"><option value="date">선택일</option><option value="template">공통 양식</option></select></label>
@@ -1150,7 +1151,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=true;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
@@ -1277,8 +1278,43 @@ const PAGE = `<!doctype html>
   $('dailyPrintOnly').innerHTML='<table class="daily-grid">'+dailyTableHtml(false)+'</table>';
   window.print();
  }
+ function dailyBeginInlineEdit(typed=null){
+  if(dailySaving)return;
+  const cell=dailyCell(dailySelected.r,dailySelected.c);
+  if(cell.role&&cell.role!=='shared')return;
+  const td=dailySheet.querySelector('td[data-r="'+cell.r+'"][data-c="'+cell.c+'"]');
+  if(!td)return;
+  const opened=td.querySelector('.daily-inline-input');
+  if(opened){opened.focus({preventScroll:true});return}
+  const scope=dailyEditing?'template':'date';
+  $('dailyTextScope').value=scope;
+  const key=dailyKey(cell.r,cell.c);
+  const original=scope==='template'?cell.text||'':Object.prototype.hasOwnProperty.call(dailyOverrides,key)?dailyOverrides[key]:cell.text||'';
+  const input=document.createElement('input');input.type='text';input.className='daily-inline-input';input.maxLength=140;
+  input.setAttribute('aria-label','선택 셀 내용 편집');
+  input.value=typed===null?original:typed;
+  td.replaceChildren(input);let finished=false;
+  const finish=(save=true)=>{if(finished)return;finished=true;const value=input.value;
+    if(save&&value!==original)dailySetText(value);else dailyPaint();
+    dailySheet.focus({preventScroll:true})
+  };
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();finish(false);return}
+    if(e.key==='Enter'||e.key==='Tab'){
+      e.preventDefault();e.stopPropagation();
+      const dr=e.key==='Enter'?(e.shiftKey?-1:1):0,dc=e.key==='Tab'?(e.shiftKey?-1:1):0;
+      finish(true);
+      const r=Math.max(0,Math.min(dailyTemplate.heights.length-1,cell.r+dr));
+      const c=Math.max(0,Math.min(dailyTemplate.widths.length-1,cell.c+dc));
+      dailySelect(r,c,false);
+    }else e.stopPropagation()
+  });
+  input.addEventListener('blur',()=>finish(true));
+  input.focus({preventScroll:true});
+  if(typed===null)input.select();
+}
  function dailyNavigateKeyboard(e){if(['INPUT','SELECT','BUTTON'].includes(document.activeElement.tagName))return;const dirs={ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1],Enter:[1,0],Tab:[0,e.shiftKey?-1:1]};if(dirs[e.key]){e.preventDefault();const [dr,dc]=dirs[e.key],r=Math.max(0,Math.min(dailyTemplate.heights.length-1,dailySelected.r+dr)),c=Math.max(0,Math.min(dailyTemplate.widths.length-1,dailySelected.c+dc));dailySelect(r,c,e.shiftKey&&e.key.startsWith('Arrow'));const td=dailySheet.querySelector('td[data-r="'+dailyCell(r,c).r+'"][data-c="'+dailyCell(r,c).c+'"]');if(td)td.scrollIntoView({block:'nearest',inline:'nearest'});return}
-  if((e.key==='F2'||e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();$('dailyCellText').focus();if(e.key!=='F2'){$('dailyCellText').value=e.key;dailySetText(e.key)}else $('dailyCellText').select()}
+  if((e.key==='F2'||e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailyBeginInlineEdit(e.key==='F2'?null:e.key)}
   if((e.key==='Backspace'||e.key==='Delete')&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailySetText('')}
  }
  function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('.col-resize,.row-resize'),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
@@ -1318,17 +1354,18 @@ const PAGE = `<!doctype html>
   if(cmd&&!e.altKey&&key==='s'){e.preventDefault();dailySaveAll()}
  });
  $('dailySheetTable').addEventListener('keydown',dailyNavigateKeyboard);
- $('dailySheetTable').addEventListener('dblclick',e=>{const td=e.target.closest('td[data-r]');if(td&&!dailyEditing){dailySelect(+td.dataset.r,+td.dataset.c,false);if(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared'){$('dailyCellText').focus({preventScroll:true});$('dailyCellText').select()}}});
+ $('dailySheetTable').addEventListener('dblclick',e=>{const td=e.target.closest('td[data-r]');if(td){dailySelect(+td.dataset.r,+td.dataset.c,false);dailyBeginInlineEdit()}});
  $('dailySheetTable').addEventListener('click',e=>{
   if(dailyEditing)return;
   const name=e.target.closest('button[data-person]');if(name){dailyChooseEmployee(name.dataset.person);return}
-  const td=e.target.closest('td[data-r]');if(!td)return;
+  const td=e.target.closest('td[data-r]');if(!td||e.target.closest('.daily-inline-input'))return;
+  const alreadySelected=!dailyEditing&&dailySelected.r===+td.dataset.r&&dailySelected.c===+td.dataset.c;
   dailySelect(+td.dataset.r,+td.dataset.c,false);
-  dailySheet.focus({preventScroll:true});
+  if(alreadySelected)dailyBeginInlineEdit();else dailySheet.focus({preventScroll:true});
  });
  $('dailyPrev').addEventListener('click',()=>dailyDateShift(-1));$('dailyNext').addEventListener('click',()=>dailyDateShift(1));
  $('dailyDate').addEventListener('change',e=>{const target=e.target.value;if(!target)return;if(!dailyCanDiscard()){e.target.value=dailyDateValue;return}dailyDiscardOnDateChange();dailyDateValue=target;dailyLoadDay()});
- $('dailyToggleEdit').addEventListener('click',()=>{dailyEditing=!dailyEditing;dailyResizeArmed=false;dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailyPaint();dailySheet.focus({preventScroll:true})});
+ $('dailyToggleEdit').addEventListener('click',()=>{dailyEditing=!dailyEditing;$('dailyTextScope').value=dailyEditing?'template':'date';dailyResizeArmed=false;dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailyPaint();dailySheet.focus({preventScroll:true})});
  $('dailyPrint').addEventListener('click',dailyPrint);
  $('dailyRole').addEventListener('change',e=>dailySetRole(e.target.value));
  $('dailyTextScope').addEventListener('change',dailyPaintSelection);
