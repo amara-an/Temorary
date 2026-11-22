@@ -1,4 +1,4 @@
-// v20.14.2: default content editing / separate structural edit mode; select before resize.
+// v20.14.3: clear legacy A1 header text; keep merged note cell and all other content.
 // Cloudflare Worker v20.14.1: recover code/roster loading by decoupling leave quota schema; preserve daily editor.
 // D1 is authoritative for leave markers in both roster and XLSX; no DB migration needed.
 // Existing D1 records are retained; deployment does not import or remove records.
@@ -1093,7 +1093,7 @@ const PAGE = `<!doctype html>
  // Daily sheet: the roster owns code assignments, the code catalog owns times, staff IDs own names.
  const freshDailyTemplate=()=>{
   const cells=[
-   {r:0,c:0,rs:1,cs:3,text:'일간 근무 현황',fontSize:21,bold:true},
+   {r:0,c:0,rs:1,cs:3,text:'',fontSize:21,bold:true},
    {r:0,c:3,rs:1,cs:3,text:'',role:'date',fontSize:17,bold:true},
    {r:1,c:0,rs:1,cs:1,text:'코드',bold:true},
    {r:1,c:1,rs:1,cs:1,text:'근무시간',bold:true},
@@ -1566,7 +1566,7 @@ async function employeeApi(request,env,url){
     if(method==='GET'){
       const row=await db.prepare('SELECT template_json FROM daily_template_settings WHERE id=1').first();
       if(!row)return json({ok:true,template:null});
-      try{return json({ok:true,template:JSON.parse(row.template_json)})}catch(_){return json({ok:false,error:'저장된 양식 데이터 형식 오류'},500)}
+      try{const template=JSON.parse(row.template_json);const a1=Array.isArray(template?.cells)?template.cells.find(x=>x.r===0&&x.c===0):null;if(a1?.text==='일간 근무 현황'){a1.text='';await db.prepare('UPDATE daily_template_settings SET template_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=1').bind(JSON.stringify(template)).run()}return json({ok:true,template})}catch(_){return json({ok:false,error:'저장된 양식 데이터 형식 오류'},500)}
     }
     if(method==='PUT'){
       const raw=await request.text();
