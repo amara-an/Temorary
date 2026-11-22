@@ -1,3 +1,4 @@
+// v20.14.6: customizable per-cell borders; print, saved template and undo supported.
 // v20.14.5: fill remaining screen with daily sheet editor; preserve inline input and A1 notes.
 // Cloudflare Worker v20.14.1: recover code/roster loading by decoupling leave quota schema; preserve daily editor.
 // D1 is authoritative for leave markers in both roster and XLSX; no DB migration needed.
@@ -251,6 +252,14 @@ const PAGE = `<!doctype html>
 .daily-grid.edit-mode th.col-picked,.daily-grid.edit-mode th.row-picked{box-shadow:inset 0 0 0 2px #222;background:#fff}
 .daily-grid.edit-mode thead th[data-col],.daily-grid.edit-mode th.row-num[data-row]{cursor:pointer}
 .daily-edit-tools button:disabled{opacity:.42;cursor:not-allowed}
+.daily-border-picker{position:relative;display:inline-flex;align-items:center}
+.daily-border-panel{position:absolute;top:calc(100% + 5px);left:0;z-index:70;width:250px;max-width:calc(100vw - 90px);padding:11px;background:#fff;border:1px solid #6b7e91;border-radius:8px;box-shadow:0 8px 22px #0002;color:#111}
+.daily-border-panel[hidden]{display:none!important}
+.daily-border-panel>label{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.daily-border-panel select{min-height:31px;min-width:85px;background:#fff;color:#111}
+.daily-border-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:9px}
+.daily-border-choices button{background:#fff;color:#111;border:1px solid #b2bbc5;border-radius:6px;min-height:35px;font-size:13px;padding:6px 8px;cursor:pointer}
+.daily-border-choices button:hover,.daily-border-choices button:focus-visible{border-color:#1d4f7e;outline:1px solid #1d4f7e}
 .daily-grid td.name-cell,.daily-grid td.locked-cell{background:#fff;color:#111}
 .daily-grid td .name-tag{padding:3px 4px;border:0;background:transparent;color:inherit;font:inherit;display:inline-block;white-space:normal}
 .daily-grid td .name-tag{background:transparent;border:1px solid #aaa;border-radius:4px;margin:2px;cursor:pointer}
@@ -285,7 +294,7 @@ const PAGE = `<!doctype html>
  #dailyTemplateView{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important}
  #dailyPrintOnly{display:block!important;width:max-content;max-width:none;zoom:var(--daily-print-scale,0.85)}
  #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
- #dailyPrintOnly .daily-grid td{border:1px solid #333!important;background:#fff!important;color:#000!important;line-height:1.15}
+ #dailyPrintOnly .daily-grid td{background:#fff!important;color:#000!important;line-height:1.15}
 }
 
 /* Employee name autocomplete; the selected value remains an immutable staff ID. */
@@ -359,6 +368,22 @@ const PAGE = `<!doctype html>
      <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
      <label>폰트 <input id="dailyFontSize" type="number" min="9" max="42" step="1" aria-label="글꼴 크기"></label>
      <label>굵기 <input id="dailyBold" type="checkbox" aria-label="굵게"></label>
+     <div class="daily-border-picker" id="dailyBorderPicker">
+      <button class="btn" type="button" id="dailyBorderToggle" aria-expanded="false" aria-controls="dailyBorderPanel" title="선택한 셀의 테두리 설정">테두리 ▾</button>
+      <div class="daily-border-panel" id="dailyBorderPanel" hidden>
+       <label>선 굵기 <select id="dailyBorderWidth" aria-label="테두리 굵기"><option value="0">없음</option><option value="1" selected>1px</option><option value="2">2px</option><option value="3">3px</option></select></label>
+       <div class="daily-border-choices">
+        <button type="button" data-border-action="none">없음</button>
+        <button type="button" data-border-action="all">전체</button>
+        <button type="button" data-border-action="outline">바깥</button>
+        <button type="button" data-border-action="inside">안쪽</button>
+        <button type="button" data-border-action="top">위쪽</button>
+        <button type="button" data-border-action="bottom">아래쪽</button>
+        <button type="button" data-border-action="left">왼쪽</button>
+        <button type="button" data-border-action="right">오른쪽</button>
+       </div>
+      </div>
+     </div>
      <label>열 너비 <input id="dailyColWidth" type="number" min="42" max="650" step="1" aria-label="열 너비"></label>
      <label>행 높이 <input id="dailyRowHeight" type="number" min="25" max="170" step="1" aria-label="행 높이"></label>
     </div>
@@ -1143,7 +1168,10 @@ const PAGE = `<!doctype html>
    out+='<tr style="height:'+h[r]+'px">';if(edit)out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
    for(let c=0;c<w.length;c++){if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}
     for(let rr=r;rr<r+cell.rs;rr++)for(let cc=c;cc<c+cell.cs;cc++)if(rr!==r||cc!==c)occupied.add(dailyKey(rr,cc));
-    const dat=dailyValue(cell,roles,groups),role=cell.role||'',style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';';
+    const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
+    const sides=[['t','top'],['r','right'],['b','bottom'],['l','left']];
+    const borderStyle=sides.map(([key,side])=>{const n=Number.isInteger(borders[key])&&borders[key]>=0&&borders[key]<=3?borders[key]:1;return 'border-'+side+':'+n+'px '+(n?'solid #222':'none transparent')+';'}).join('');
+    const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';'+borderStyle;
     let content=text(dat.value||'');if(role==='names'&&!edit&&dat.people?.length)content=dat.people.map(p=>'<button type="button" class="name-tag" data-person="'+text(p.id)+'" title="이름 수정 불가 · 근무 코드 선택">'+text(p.name)+'</button>').join('');
     const grips=edit?'<span class="col-resize" data-col="'+(c+cell.cs-1)+'" title="열 너비 조절" aria-hidden="true"></span><span class="row-resize" data-row="'+(r+cell.rs-1)+'" title="행 높이 조절" aria-hidden="true"></span>':'';
     out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1?' rowspan="'+cell.rs+'"':'')+(cell.cs>1?' colspan="'+cell.cs+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
@@ -1202,12 +1230,50 @@ const PAGE = `<!doctype html>
   const batch=dailyDateValue+'|'+key+'|'+$('dailyTextScope').value;if(dailyTypingKey!==batch){dailyRemember();dailyTypingKey=batch}
   if($('dailyTextScope').value==='template'){dailyEntry(cell.r,cell.c).text=value;dailyDirtyMark(true)}else{dailyOverrides[key]=value;dailyDirtyMark(false)}dailyPaint()}
  function dailySetRole(role){const entry=dailyEntry(dailySelected.r,dailySelected.c);if((entry.role||'')===role)return;dailyRemember();entry.role=role;dailyDirtyMark(true);dailyPaint()}
+ function dailyBorderTargets(){
+  const selected=new Set();const rows=dailyTemplate.heights.length,cols=dailyTemplate.widths.length;
+  const add=(r,c)=>{if(r>=0&&r<rows&&c>=0&&c<cols)selected.add(dailyKey(r,c))};
+  if(dailyChosenCols.size){for(const c of dailyChosenCols)for(let r=0;r<rows;r++)add(r,c)}
+  else if(dailyChosenRows.size){for(const r of dailyChosenRows)for(let c=0;c<cols;c++)add(r,c)}
+  else if(dailyMarkedCells.size){for(const key of dailyMarkedCells){const [r,c]=key.split(',').map(Number);add(r,c)}}
+  else if(dailyRange){for(let r=dailyRange.r1;r<=dailyRange.r2;r++)for(let c=dailyRange.c1;c<=dailyRange.c2;c++)add(r,c)}
+  else add(dailySelected.r,dailySelected.c);
+  const targets=new Map();for(const key of selected){const [r,c]=key.split(',').map(Number),cell=dailyCell(r,c);targets.set(dailyKey(cell.r,cell.c),cell)}
+  const allCoords=new Set();for(const cell of targets.values())for(let r=cell.r;r<cell.r+cell.rs;r++)for(let c=cell.c;c<cell.c+cell.cs;c++)allCoords.add(dailyKey(r,c));
+  return {targets:[...targets.values()],selected:allCoords};
+ }
+ function dailyApplyBorder(action){if(dailySaving)return;
+  const supported=['none','all','outline','inside','top','bottom','left','right'];if(!supported.includes(action))return;
+  const {targets,selected}=dailyBorderTargets();if(!targets.length)return;
+  const width=Math.max(0,Math.min(3,Number($('dailyBorderWidth').value)||0));const updates=[];
+  for(const cell of targets){const b=cell.borders||{},next={...b};const outside={
+    t:Array.from({length:cell.cs},(_,i)=>!selected.has(dailyKey(cell.r-1,cell.c+i))).some(Boolean),
+    b:Array.from({length:cell.cs},(_,i)=>!selected.has(dailyKey(cell.r+cell.rs,cell.c+i))).some(Boolean),
+    l:Array.from({length:cell.rs},(_,i)=>!selected.has(dailyKey(cell.r+i,cell.c-1))).some(Boolean),
+    r:Array.from({length:cell.rs},(_,i)=>!selected.has(dailyKey(cell.r+i,cell.c+cell.cs))).some(Boolean)
+  };
+    for(const side of ['t','r','b','l']){
+      if(action==='none')next[side]=0;
+      else if(action==='all')next[side]=width;
+      else if(action==='outline')next[side]=outside[side]?width:0;
+      else if(action==='inside')next[side]=outside[side]?0:width;
+      else if(action==='top'&&side==='t'&&outside[side])next[side]=width;
+      else if(action==='bottom'&&side==='b'&&outside[side])next[side]=width;
+      else if(action==='left'&&side==='l'&&outside[side])next[side]=width;
+      else if(action==='right'&&side==='r'&&outside[side])next[side]=width;
+    }
+    if(['t','r','b','l'].some(side=>(b[side]??1)!==(next[side]??1)))updates.push({r:cell.r,c:cell.c,borders:next});
+  }
+  if(!updates.length)return;
+  dailyRemember();for(const item of updates)dailyEntry(item.r,item.c).borders=item.borders;
+  dailyDirtyMark(true);dailyPaint();
+ }
  function dailySetStyle(field,value){const targets=dailyStyleTargets();if(targets.every(x=>field==='fontSize'?(x.fontSize||13)===value:!!x.bold===!!value))return;dailyRemember();for(const entry of targets)entry[field]=value;dailyDirtyMark(true);dailyPaint()}
  function dailyMerge(){if(dailyMarkedCells.size||dailyChosenCols.size||dailyChosenRows.size)return alert('셀 병합은 연속된 영역을 드래그하거나 Shift로 선택하세요.');const b=dailyRange;if(!b)return alert('병합할 셀을 드래그하거나 Shift+방향키로 선택하세요.');const hit=dailyTemplate.cells.filter(x=>x.r<=b.r2&&x.r+x.rs-1>=b.r1&&x.c<=b.c2&&x.c+x.cs-1>=b.c1);
   if(hit.some(x=>x.r<b.r1||x.c<b.c1||x.r+x.rs-1>b.r2||x.c+x.cs-1>b.c2))return alert('기존 병합 셀 전체를 포함해서 선택하세요.');
   const distinct=[...new Set(hit.map(x=>x.role||'').filter(Boolean))];if(distinct.length>1)return alert('서로 다른 데이터 역할의 셀은 병합할 수 없습니다.');
   const src=hit.find(x=>x.r===b.r1&&x.c===b.c1)||{},contents=hit.map(x=>x.text).filter(Boolean);
-  dailyRemember();dailyTemplate.cells=dailyTemplate.cells.filter(x=>!hit.includes(x));dailyTemplate.cells.push({r:b.r1,c:b.c1,rs:b.r2-b.r1+1,cs:b.c2-b.c1+1,text:contents.join(' '),role:distinct[0]||'',fontSize:src.fontSize||13,bold:!!src.bold});
+  dailyRemember();dailyTemplate.cells=dailyTemplate.cells.filter(x=>!hit.includes(x));dailyTemplate.cells.push({r:b.r1,c:b.c1,rs:b.r2-b.r1+1,cs:b.c2-b.c1+1,text:contents.join(' '),role:distinct[0]||'',fontSize:src.fontSize||13,bold:!!src.bold,...(src.borders?{borders:{...src.borders}}:{})});
   dailySelected={r:b.r1,c:b.c1};dailyAnchor={...dailySelected};dailyRange=null;dailyDirtyMark(true);dailyPaint();
  }
  function dailySplit(){const cell=dailyCell(dailySelected.r,dailySelected.c);if(cell.rs===1&&cell.cs===1)return;dailyRemember();const entry=dailyEntry(cell.r,cell.c);entry.rs=1;entry.cs=1;dailyRange=null;dailyDirtyMark(true);dailyPaint()}
@@ -1375,6 +1441,9 @@ const PAGE = `<!doctype html>
  $('dailyCellText').addEventListener('keydown',e=>{if(e.key==='Tab'||e.key==='Enter'){e.preventDefault();const r=Math.max(0,Math.min(dailyTemplate.heights.length-1,dailySelected.r+(e.key==='Enter'?(e.shiftKey?-1:1):0)));const c=Math.max(0,Math.min(dailyTemplate.widths.length-1,dailySelected.c+(e.key==='Tab'?(e.shiftKey?-1:1):0)));dailySelect(r,c,false);dailySheet.focus({preventScroll:true})}});
  $('dailyFontSize').addEventListener('change',e=>dailySetStyle('fontSize',Math.max(9,Math.min(42,+e.target.value||13))));
  $('dailyBold').addEventListener('change',e=>dailySetStyle('bold',e.target.checked));
+ $('dailyBorderToggle').addEventListener('click',()=>{const panel=$('dailyBorderPanel');panel.hidden=!panel.hidden;$('dailyBorderToggle').setAttribute('aria-expanded',String(!panel.hidden))});
+ $('dailyBorderPanel').addEventListener('click',e=>{const btn=e.target.closest('button[data-border-action]');if(!btn)return;dailyApplyBorder(btn.dataset.borderAction);$('dailyBorderPanel').hidden=true;$('dailyBorderToggle').setAttribute('aria-expanded','false')});
+ document.addEventListener('pointerdown',e=>{if(!e.target.closest('#dailyBorderPicker')){$('dailyBorderPanel').hidden=true;$('dailyBorderToggle').setAttribute('aria-expanded','false')}});
  $('dailyColWidth').addEventListener('change',e=>dailyResize('col',dailySelected.c,+e.target.value));
  $('dailyRowHeight').addEventListener('change',e=>dailyResize('row',dailySelected.r,+e.target.value));
  $('dailyAddRow').addEventListener('click',()=>dailyChangeDimension('row',true));$('dailyRemoveRow').addEventListener('click',()=>dailyChangeDimension('row',false));
@@ -1580,7 +1649,7 @@ async function employeeApi(request,env,url){
     if(!validDate(b?.date)||!Array.isArray(b.codes)||b.codes.length>200)return json({ok:false,error:'날짜나 근무 배정 형식이 올바르지 않습니다.'},400);
     if(b.template!=null){const t=b.template;
       if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=25&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
-      const seen=new Set();for(const x of t.cells){if(!x||![x.r,x.c,x.rs,x.cs].every(Number.isInteger)||x.r<0||x.c<0||x.rs<1||x.cs<1||x.r+x.rs>t.heights.length||x.c+x.cs>t.widths.length||typeof x.text!=='string'||x.text.length>140||(x.fontSize!==undefined&&(!Number.isInteger(x.fontSize)||x.fontSize<9||x.fontSize>42))||(x.bold!==undefined&&typeof x.bold!=='boolean')||(x.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(x.role)))return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
+      const seen=new Set();for(const x of t.cells){if(!x||![x.r,x.c,x.rs,x.cs].every(Number.isInteger)||x.r<0||x.c<0||x.rs<1||x.cs<1||x.r+x.rs>t.heights.length||x.c+x.cs>t.widths.length||typeof x.text!=='string'||x.text.length>140||(x.borders!==undefined&&(!x.borders||typeof x.borders!=='object'||Array.isArray(x.borders)||Object.entries(x.borders).some(([k,v])=>!['t','r','b','l'].includes(k)||!Number.isInteger(v)||v<0||v>3)))||(x.fontSize!==undefined&&(!Number.isInteger(x.fontSize)||x.fontSize<9||x.fontSize>42))||(x.bold!==undefined&&typeof x.bold!=='boolean')||(x.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(x.role)))return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
         for(let r=x.r;r<x.r+x.rs;r++)for(let c=x.c;c<x.c+x.cs;c++){const key=r+','+c;if(seen.has(key))return json({ok:false,error:'셀 병합 범위가 겹칩니다.'},400);seen.add(key)}}
     }
     if(b.overrides!=null&&(!b.overrides||typeof b.overrides!=='object'||Array.isArray(b.overrides)||Object.keys(b.overrides).length>400||Object.entries(b.overrides).some(([key,value])=>!/^(0|[1-9][0-9]*),(0|[1-9][0-9]*)$/.test(key)||typeof value!=='string'||value.length>140)))return json({ok:false,error:'기입 내용이 올바르지 않습니다.'},400);
@@ -1614,7 +1683,7 @@ async function employeeApi(request,env,url){
       if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=25&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
       const occupied=new Set();
       for(const cell of t.cells){
-        if(!cell||![cell.r,cell.c,cell.rs,cell.cs].every(Number.isInteger)||cell.r<0||cell.c<0||cell.rs<1||cell.cs<1||cell.r+cell.rs>t.heights.length||cell.c+cell.cs>t.widths.length||typeof cell.text!=='string'||cell.text.length>140||(cell.fontSize!==undefined&&(!Number.isInteger(cell.fontSize)||cell.fontSize<9||cell.fontSize>42))||(cell.bold!==undefined&&typeof cell.bold!=='boolean')||(cell.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(cell.role))) return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
+        if(!cell||![cell.r,cell.c,cell.rs,cell.cs].every(Number.isInteger)||cell.r<0||cell.c<0||cell.rs<1||cell.cs<1||cell.r+cell.rs>t.heights.length||cell.c+cell.cs>t.widths.length||typeof cell.text!=='string'||cell.text.length>140||(cell.borders!==undefined&&(!cell.borders||typeof cell.borders!=='object'||Array.isArray(cell.borders)||Object.entries(cell.borders).some(([k,v])=>!['t','r','b','l'].includes(k)||!Number.isInteger(v)||v<0||v>3)))||(cell.fontSize!==undefined&&(!Number.isInteger(cell.fontSize)||cell.fontSize<9||cell.fontSize>42))||(cell.bold!==undefined&&typeof cell.bold!=='boolean')||(cell.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(cell.role))) return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
         for(let r=cell.r;r<cell.r+cell.rs;r++)for(let c=cell.c;c<cell.c+cell.cs;c++){const key=r+','+c;if(occupied.has(key))return json({ok:false,error:'셀 병합 범위가 겹칩니다.'},400);occupied.add(key)}
       }
       await db.prepare("INSERT INTO daily_template_settings(id,template_json,updated_at) VALUES(1,?,CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET template_json=excluded.template_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(t)).run();
