@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "staff-test",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-21",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "schedule-test-db",
+      "database_id": "70c08a67-1ba4-4611-906f-4c424172c039"
+    }
+  ]
+}
