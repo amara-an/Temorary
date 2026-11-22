@@ -9,5 +9,6 @@
       "database_name": "schedule-test-db",
       "database_id": "70c08a67-1ba4-4611-906f-4c424172c039"
     }
-  ]
+  ],
+  "keep_vars": true
 }
