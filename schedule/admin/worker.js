@@ -1,4 +1,4 @@
-// v20.14.7: equalize selected column cell heights by redistributing row spans, preserving total table height.
+// v20.14.8: equalize selected row heights only; do not modify merged cell spans.
 // v20.14.5: fill remaining screen with daily sheet editor; preserve inline input and A1 notes.
 // Cloudflare Worker v20.14.1: recover code/roster loading by decoupling leave quota schema; preserve daily editor.
 // D1 is authoritative for leave markers in both roster and XLSX; no DB migration needed.
@@ -363,7 +363,7 @@ const PAGE = `<!doctype html>
     <div class="daily-edit-tools">
      <button class="btn" type="button" id="dailyAddRow">행 +</button><button class="btn" type="button" id="dailyRemoveRow">행 −</button>
      <button class="btn" type="button" id="dailyAddCol">열 +</button><button class="btn" type="button" id="dailyRemoveCol">열 −</button>
-     <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">해제</button><button class="btn" type="button" id="dailyEqualizeRows" title="선택한 열의 셀 높이를 표의 세로 영역에 균등 배분 (전체 행 높이 유지)">높이 균등</button>
+     <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">해제</button><button class="btn" type="button" id="dailyEqualizeRows" title="선택한 행들의 높이를 균등 배분 (선택한 행 높이 합계 유지)">높이 균등</button>
      <label>셀 <strong id="dailyCoord">A1</strong></label>
      <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
      <label>폰트 <input id="dailyFontSize" type="number" min="9" max="42" step="1" aria-label="글꼴 크기"></label>
@@ -1298,60 +1298,31 @@ const PAGE = `<!doctype html>
 
  function dailyEqualizeRows(){
   if(dailySaving)return;
-  const bounds={start:2,end:dailyTemplate.heights.length-2};
-  const roleCells=dailyTemplate.cells.filter(x=>['code','time','names','leave','annual','shared'].includes(x.role));
-  if(roleCells.length){bounds.start=Math.min(...roleCells.map(x=>x.r));bounds.end=Math.max(...roleCells.map(x=>x.r+x.rs-1))}
-  let columns=[];
-  if(dailyChosenCols.size)columns=[...dailyChosenCols];
-  else if(dailyRange){for(let c=dailyRange.c1;c<=dailyRange.c2;c++)columns.push(c);bounds.start=dailyRange.r1;bounds.end=dailyRange.r2}
-  else if(dailyMarkedCells.size>1){
-    const list=[...dailyMarkedCells].map(k=>k.split(',').map(Number));
-    columns=[...new Set(list.map(([r,c])=>dailyCell(r,c).c))];
-    bounds.start=Math.min(...list.map(([r,c])=>dailyCell(r,c).r));
-    bounds.end=Math.max(...list.map(([r,c])=>{const x=dailyCell(r,c);return x.r+x.rs-1}))
-  }else columns=[dailySelected.c];
-  bounds.start=Math.max(0,bounds.start);bounds.end=Math.min(dailyTemplate.heights.length-1,bounds.end);
-  if(bounds.start>bounds.end)return;
-  const changes=[];
-  for(const c of [...new Set(columns)]){
-    if(c<0||c>=dailyTemplate.widths.length)continue;
-    const byRow=[];
-    for(let row=bounds.start;row<=bounds.end;row++)byRow[row]=dailyCell(row,c);
-    let row=bounds.start;
-    while(row<=bounds.end){
-      const x=byRow[row];
-      if(x.cs!==1||x.c!==c||x.r<bounds.start||x.r+x.rs-1>bounds.end){row++;continue}
-      const first=row;let last=row;
-      while(last<=bounds.end){
-        const cell=byRow[last];
-        if(cell.cs!==1||cell.c!==c||cell.r<bounds.start||cell.r+cell.rs-1>bounds.end)break;
-        last++
-      }
-      const entries=[];const seen=new Set();
-      for(let r=first;r<last;r++){const cell=byRow[r];if(cell.r!==r||seen.has(cell)||!dailyTemplate.cells.includes(cell))continue;seen.add(cell);entries.push(cell)}
-      const total=last-first;
-      if(entries.length){
-        for(let i=0;i<entries.length;i++){
-          const start=first+Math.round(i*total/entries.length);
-          const end=first+Math.round((i+1)*total/entries.length);
-          const cell=entries[i];
-          if(cell.r!==start||cell.rs!==end-start)changes.push({cell,r:cell.r,c:cell.c,nextR:start,nextRs:end-start})
-        }
-      }
-      row=last;
+  const heights=dailyTemplate.heights;
+  const selected=new Set();
+  const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
+  if(dailyChosenRows.size){
+    for(const r of dailyChosenRows)if(r>=0&&r<heights.length)selected.add(r);
+  }else if(dailyRange){
+    for(let r=dailyRange.r1;r<=dailyRange.r2;r++)if(r>=0&&r<heights.length)selected.add(r);
+  }else if(dailyMarkedCells.size){
+    for(const key of dailyMarkedCells){
+      const [r,c]=key.split(',').map(Number);
+      addRows(dailyCell(r,c));
     }
+  }else addRows(dailyCell(dailySelected.r,dailySelected.c));
+  const rows=[...selected].sort((a,b)=>a-b);
+  if(rows.length<2){$('dailyStatus').textContent='높이를 맞출 행을 2개 이상 선택하세요.';return}
+  const total=rows.reduce((sum,r)=>sum+heights[r],0);
+  const unit=Math.floor(total/rows.length),extra=total%rows.length;
+  const values=rows.map((_,i)=>unit+(i<extra?1:0));
+  if(rows.every((r,i)=>heights[r]===values[i])){
+    $('dailyStatus').textContent='선택한 행은 이미 균등한 높이입니다.';return;
   }
-  if(!changes.length){$('dailyStatus').textContent='이미 균등하게 배치되어 있습니다.';return}
-  const moves=new Map(changes.filter(x=>x.r!==x.nextR).map(x=>[dailyKey(x.r,x.c),dailyKey(x.nextR,x.c)]));
-  // Existing date-specific notes follow their cell instead of remaining at an old coordinate.
-  const movedOverrides={...dailyOverrides};
-  let overridesMoved=false;
-  for(const [from,to] of moves){if(Object.prototype.hasOwnProperty.call(dailyOverrides,from)){delete movedOverrides[from];overridesMoved=true}}
-  for(const [from,to] of moves){if(Object.prototype.hasOwnProperty.call(dailyOverrides,from))movedOverrides[to]=dailyOverrides[from]}
   dailyRemember();
-  for(const x of changes){x.cell.r=x.nextR;x.cell.rs=x.nextRs}
-  if(overridesMoved){dailyOverrides=movedOverrides;dailyDayDirty=true}
-  dailyDirtyMark(true);dailyPaint();
+  for(let i=0;i<rows.length;i++)heights[rows[i]]=values[i];
+  dailyDirtyMark(true);
+  dailyPaint();
  }
  function dailyResizeTargets(axis,index){const picked=axis==='col'?dailyChosenCols:dailyChosenRows;return picked.has(index)?[...picked].sort((a,b)=>a-b):[index]}
  function dailyResize(axis,index,newSize){const sizes=axis==='col'?dailyTemplate.widths:dailyTemplate.heights,min=axis==='col'?42:25,max=axis==='col'?650:170;const n=Math.max(min,Math.min(max,Math.round(newSize)));if(!Number.isFinite(n))return;const targets=dailyResizeTargets(axis,index);if(targets.every(i=>sizes[i]===n))return;dailyRemember();for(const i of targets)sizes[i]=n;dailyDirtyMark(true);dailyPaint()}
