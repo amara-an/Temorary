@@ -337,7 +337,7 @@ const PAGE = `<!doctype html>
   </div>
   <section id="dailyTemplateView" hidden>
    <div class="daily-topbar">
-    <h1>근무표</h1>
+    <h1>일일 근무표</h1>
     <div class="daily-date-controls"><button class="btn" type="button" id="dailyPrev" aria-label="전날">◀</button><input type="date" id="dailyDate" aria-label="일간 근무표 날짜"><button class="btn" type="button" id="dailyNext" aria-label="다음 날">▶</button></div>
     <button class="btn push" type="button" id="dailyBack">월간으로</button>
     <button class="btn" type="button" id="dailyPrint">출력하기</button>
