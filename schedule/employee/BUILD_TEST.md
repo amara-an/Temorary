@@ -11,3 +11,7 @@ The command uploads a new version without activating it for production traffic.
 ## Retest after watch path correction
 
 Second build trigger for `schedule/employee/*`, with no Worker code changes.
+
+## Watch-path retest 3
+
+Trigger Cloudflare build from `schedule/employee/BUILD_TEST.md` after checking the watch path. This edit does not change Worker runtime code.
