@@ -1190,8 +1190,18 @@ const PAGE = `<!doctype html>
  }
  function dailyTableHtml(edit,side="all"){const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups(),first=side==="right"?3:0,last=side==="left"?3:w.length;let out='<colgroup>'+(edit&&side!=='right'?'<col style="width:37px">':'');for(let c=first;c<last;c++)out+='<col style="width:'+w[c]+'px">';out+='</colgroup>';
   if(edit){out+='<thead><tr>'+(side!=='right'?'<th class="row-num"></th>':'');for(let c=first;c<last;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
-  out+='<tbody>';const occupied=new Set();const rows=side==='right'?[0,1,2,h.length-1]:Array.from({length:h.length},(_,i)=>i);for(const r of rows){
-   out+='<tr style="height:'+(side==='right'?(r===0?t.rightHeights[0]:r===1?t.rightHeights[1]:r===2?t.rightHeights[2]:t.rightHeights[3]):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
+  out+='<tbody>';const occupied=new Set();
+  // Render one physical row per visible A~C band when all three columns
+  // share boundaries. Underlying storage coordinates remain stable.
+  const workEnd=h.length-1;
+  const bands=[];let compact=side==='left';
+  if(compact){for(let r=2;r<workEnd;){const anchors=[0,1,2].map(c=>dailyCell(r,c));const span=anchors[0].rs;
+    if(!span||anchors.some((x,c)=>x.r!==r||x.c!==c||x.rs!==span||x.cs!==1)){compact=false;break}
+    bands.push({r,span});r+=span;
+  }}
+  const rows=side==='right'?[0,1,2,h.length-1]:compact?[0,1,...bands.map(x=>x.r),h.length-1]:Array.from({length:h.length},(_,i)=>i);
+  for(const r of rows){
+   out+='<tr style="height:'+(side==='right'?(r===0?t.rightHeights[0]:r===1?t.rightHeights[1]:r===2?t.rightHeights[2]:t.rightHeights[3]):compact&&r>=2&&r<workEnd?h.slice(r,r+bands.find(b=>b.r===r).span).reduce((a,b)=>a+b,0):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
    for(let c=first;c<last;c++){if(side==='right'&&r===h.length-1){if(c===first)out+='<td colspan="'+(last-first)+'" class="daily-right-blank"></td>';continue}if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}if(side==='left'&&cell.c+cell.cs>last){continue}
     for(let rr=r;rr<r+cell.rs;rr++)for(let cc=c;cc<c+cell.cs;cc++)if(rr!==r||cc!==c)occupied.add(dailyKey(rr,cc));
     const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
@@ -1200,7 +1210,7 @@ const PAGE = `<!doctype html>
     const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
     let content=text(dat.value||'');if(role==='names'&&!edit&&dat.people?.length)content=dat.people.map(p=>'<button type="button" class="name-tag" data-person="'+text(p.id)+'" title="이름 수정 불가 · 근무 코드 선택">'+text(p.name)+'</button>').join('');
     const grips=edit?'<span class="col-resize" data-col="'+(c+cell.cs-1)+'" title="열 너비 조절" aria-hidden="true"></span><span class="row-resize" data-row="'+(r+cell.rs-1)+'" title="행 높이 조절" aria-hidden="true"></span>':'';
-    out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1&&side!=='right'?' rowspan="'+cell.rs+'"':'')+(Math.min(cell.cs,last-c)>1?' colspan="'+Math.min(cell.cs,last-c)+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
+    out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1&&side!=='right'&&!compact?' rowspan="'+cell.rs+'"':'')+(Math.min(cell.cs,last-c)>1?' colspan="'+Math.min(cell.cs,last-c)+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
    }
    out+='</tr>';
   }
@@ -1359,24 +1369,26 @@ const PAGE = `<!doctype html>
   dailyDirtyMark(true);dailyPaint();
  }
  function dailyEqualizeLeftRows(){
-  // Equalize the visible A~C rows, not the underlying rows hidden by rowspan.
-  // The right-hand table is rendered independently and must not affect this.
-  const start=2,end=dailyTemplate.heights.length-2,heights=dailyTemplate.heights;
-  const cells=dailyTemplate.cells.filter(x=>x.c===0&&x.r>=start&&x.r<=end).sort((a,b)=>a.r-b.r);
-  if(cells.length<2)return false;
-  if(cells[0].r!==start||cells[cells.length-1].r+cells[cells.length-1].rs-1!==end||cells.some((x,i)=>i>0&&cells[i-1].r+cells[i-1].rs!==x.r))return false;
-  const total=heights.slice(start,end+1).reduce((a,b)=>a+b,0);
-  const next=heights.slice();
-  for(let i=0;i<cells.length;i++){
-   const cell=cells[i],target=Math.floor((i+1)*total/cells.length)-Math.floor(i*total/cells.length);
-   for(let j=0;j<cell.rs;j++)next[cell.r+j]=Math.floor((j+1)*target/cell.rs)-Math.floor(j*target/cell.rs);
+  const heights=dailyTemplate.heights,start=2,end=heights.length-1;
+  const bands=[];for(let r=start;r<end;){const cells=[0,1,2].map(c=>dailyCell(r,c)),span=cells[0].rs;
+   if(!span||cells.some((x,c)=>x.r!==r||x.c!==c||x.rs!==span||x.cs!==1))return false;
+   bands.push({r,span});r+=span;
   }
-  if(next.every((n,i)=>n===heights[i]))return true;
+  const selected=dailyChosenRows.size?[...dailyChosenRows]:dailyRange?Array.from({length:dailyRange.r2-dailyRange.r1+1},(_,i)=>dailyRange.r1+i):dailyMarkedCells.size?[...dailyMarkedCells].map(k=>+k.split(',')[0]):[dailySelected.r];
+  const chosen=bands.filter(b=>selected.some(r=>r>=b.r&&r<b.r+b.span));
+  // Selecting the full A~C work area means all visible bands.
+  if(chosen.length<2)return false;
+  const total=chosen.reduce((sum,b)=>sum+heights.slice(b.r,b.r+b.span).reduce((a,v)=>a+v,0),0);
+  const next=heights.slice();
+  for(let i=0;i<chosen.length;i++){const b=chosen[i],target=Math.floor((i+1)*total/chosen.length)-Math.floor(i*total/chosen.length);
+   for(let j=0;j<b.span;j++)next[b.r+j]=Math.floor((j+1)*target/b.span)-Math.floor(j*target/b.span);
+  }
+  if(next.every((v,i)=>v===heights[i]))return true;
   dailyRemember();dailyTemplate.heights=next;dailyDirtyMark(true);dailyPaint();return true;
  }
  function dailyEqualizeRows(){
   if(dailySaving)return;
-  if(!dailyChosenCols.size&&((dailyChosenRows.size>0&&[...dailyChosenRows].every(r=>r>=2&&r<dailyTemplate.heights.length-1))||(!dailyChosenRows.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1))){if(dailyEqualizeLeftRows())return;return alert('A~C의 병합 영역이 겹치거나 비어 있습니다. 병합 범위를 확인하세요.');}
+  if(!dailyChosenCols.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1){if(dailyEqualizeLeftRows())return;return alert('선택 영역에 균등 배분할 수 있는 셀이 2개 이상 필요합니다. A~C의 같은 행 경계를 선택하세요.');}
   const heights=dailyTemplate.heights;
   const selected=new Set();
   const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
