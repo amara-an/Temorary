@@ -308,7 +308,7 @@ const PAGE = `<!doctype html>
  #dailyTemplateView{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important}
  #dailyPrintOnly{display:block!important;width:198mm;max-width:none;min-height:0!important;height:auto!important;overflow:hidden!important;zoom:1}
  #dailyPrintOnly .daily-a4-frame{box-sizing:border-box;width:198mm!important;height:auto!important;min-height:0!important;max-height:284mm!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;overflow:hidden!important;page-break-after:avoid!important;break-after:avoid!important} #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
- #dailyPrintOnly .daily-grid td{background:#fff!important;color:#000!important;line-height:1.15} #dailyPrintOnly .name-tag{border:0!important;border-radius:0!important;background:transparent!important;padding:0!important;margin:0 3px!important;box-shadow:none!important;cursor:default!important}
+ body.daily-print-active>.app{display:none!important} body.daily-print-active>#dailyPrintOnly{display:block!important;position:absolute!important;top:0!important;left:0!important;margin:0!important;padding:0!important} body.daily-print-active{height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important} #dailyPrintOnly .daily-grid td{background:#fff!important;color:#000!important;line-height:1.15} #dailyPrintOnly .name-tag{border:0!important;border-radius:0!important;background:transparent!important;padding:0!important;margin:0 3px!important;box-shadow:none!important;cursor:default!important}
 }
 
 /* Employee name autocomplete; the selected value remains an immutable staff ID. */
@@ -1487,7 +1487,11 @@ const PAGE = `<!doctype html>
  function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
   dailyFitA4Widths(dailyTemplate);const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1,748/w,1050/h);
   document.documentElement.style.setProperty('--daily-print-scale',String(Math.max(0.2,scale)));
-  $('dailyPrintOnly').innerHTML='<div class="daily-a4-frame"><div style="zoom:'+Math.max(0.2,scale)+'"><table class="daily-grid">'+dailyTableHtml(false)+'</table></div></div>';
+  const printNode=$('dailyPrintOnly'),home=$('dailySheetWrap');
+  printNode.innerHTML='<div class="daily-a4-frame"><div style="zoom:'+Math.max(0.2,scale)+'"><table class="daily-grid">'+dailyTableHtml(false)+'</table></div></div>';
+  document.body.appendChild(printNode);document.body.classList.add('daily-print-active');
+  const restore=()=>{document.body.classList.remove('daily-print-active');home.insertAdjacentElement('afterend',printNode);window.removeEventListener('afterprint',restore);};
+  window.addEventListener('afterprint',restore,{once:true});
   window.print();
  }
  function dailyBeginInlineEdit(typed=null){
