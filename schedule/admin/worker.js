@@ -1370,17 +1370,26 @@ const PAGE = `<!doctype html>
  }
  function dailyEqualizeLeftRows(){
   const heights=dailyTemplate.heights,start=2,end=heights.length-1;
-  const bands=[];for(let r=start;r<end;){const cells=[0,1,2].map(c=>dailyCell(r,c)),span=cells[0].rs;
-   if(!span||cells.some((x,c)=>x.r!==r||x.c!==c||x.rs!==span||x.cs!==1))return false;
-   bands.push({r,span});r+=span;
+  // A-column visible cells define the vertical bands. Empty cells and merged
+  // cells count equally; no dependency on data roles or B/C merge shapes.
+  const bands=[];for(let r=start;r<end;){
+   const cell=dailyCell(r,0);
+   if(cell.r!==r||cell.c!==0||cell.cs!==1||cell.rs<1||r+cell.rs>end)return false;
+   bands.push({r,span:cell.rs});r+=cell.rs;
   }
-  const selected=dailyChosenRows.size?[...dailyChosenRows]:dailyRange?Array.from({length:dailyRange.r2-dailyRange.r1+1},(_,i)=>dailyRange.r1+i):dailyMarkedCells.size?[...dailyMarkedCells].map(k=>+k.split(',')[0]):[dailySelected.r];
-  const chosen=bands.filter(b=>selected.some(r=>r>=b.r&&r<b.r+b.span));
-  // Selecting the full A~C work area means all visible bands.
+  const selected=dailyChosenRows.size?[...dailyChosenRows]:
+   dailyRange?Array.from({length:dailyRange.r2-dailyRange.r1+1},(_,i)=>dailyRange.r1+i):
+   dailyMarkedCells.size?[...dailyMarkedCells].map(k=>+k.split(',')[0]):[dailySelected.r];
+  let chosen=bands.filter(b=>selected.some(r=>r>=b.r&&r<b.r+b.span));
+  // One merged work cell selected: match it to all visible work rows.
+  // This makes A14:A23 equalizable against the preceding rows without
+  // requiring a multi-select of the hidden underlying grid coordinates.
+  if(chosen.length===1&&!dailyChosenRows.size&&!dailyRange&&dailyMarkedCells.size<=1)chosen=bands;
   if(chosen.length<2)return false;
   const total=chosen.reduce((sum,b)=>sum+heights.slice(b.r,b.r+b.span).reduce((a,v)=>a+v,0),0);
   const next=heights.slice();
-  for(let i=0;i<chosen.length;i++){const b=chosen[i],target=Math.floor((i+1)*total/chosen.length)-Math.floor(i*total/chosen.length);
+  for(let i=0;i<chosen.length;i++){
+   const b=chosen[i],target=Math.floor((i+1)*total/chosen.length)-Math.floor(i*total/chosen.length);
    for(let j=0;j<b.span;j++)next[b.r+j]=Math.floor((j+1)*target/b.span)-Math.floor(j*target/b.span);
   }
   if(next.every((v,i)=>v===heights[i]))return true;
