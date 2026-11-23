@@ -1,21 +1,26 @@
-# Schedule Workers
+# 근무표 웹앱 — Schedule Workers
 
-관리자 및 직원용 Cloudflare Workers 코드 보관용입니다. 기존 `Temorary` 폴더들은 변경하지 않습니다.
+**새 ChatGPT 대화를 시작할 때 가장 먼저 읽을 문서: [개발 인수인계 HANDOFF.md](./HANDOFF.md)**
 
-- `admin/worker.js`: 관리자 Worker **v20.14.2** — 일간표 내용 우선 편집, 월간 근무표·휴무 관리
-- `employee/worker.js`: 직원 Worker **v4.6.2** — 개인 근무표, 휴무 신청·취소, 신청자 명단, 월간 PDF
+현재 개발·배포 상태와 운영 원칙, 구현한 기능, 미완성 작업, D1 저장 구조, 새 대화에서 이어가는 방법을 인수인계 문서에 정리했습니다.
 
-## Cloudflare 연결 전 확인
+## 소스와 실제 배포
 
-이 저장소는 공개 저장소입니다. 비밀번호, API 토큰 및 기타 비밀값은 이 폴더에 저장하지 않습니다.
+| | 관리자 | 직원용 |
+|---|---|---|
+| Worker | [testform](https://testform.mara04.workers.dev) | [staff-test](https://staff-test.mara04.workers.dev) |
+| 소스 | [admin/worker.js](./admin/worker.js) (v20.14.8) | [employee/worker.js](./employee/worker.js) (v4.6.2) |
+| Wrangler | [admin/wrangler.jsonc](./admin/wrangler.jsonc) | [employee/wrangler.jsonc](./employee/wrangler.jsonc) |
 
-각 기존 Worker에서 **Settings → Builds → Connect**로 이 GitHub 저장소를 연결할 수 있습니다. 관리자 Worker의 프로젝트 루트는 `schedule/admin`, 직원 Worker는 `schedule/employee`로 각각 지정합니다.
+Cloudflare Workers Builds는 `main`의 코드 변경을 감지해 **자동으로 실제 Worker에 배포**하도록 연결되어 있습니다. 관리자는 `schedule/admin/*`, 직원용은 `schedule/employee/*`를 감시합니다.
 
-**아직 Wrangler 배포 설정은 포함하지 않았습니다.** 배포 전에 각 디렉터리에 `wrangler.jsonc`를 작성해야 합니다. 다음 항목은 실제 Cloudflare에 설정된 값을 확인한 뒤 채워 넣어야 합니다.
+- 관리자 배포 명령: `npx wrangler deploy --config schedule/admin/wrangler.jsonc`
+- 직원용 배포 명령: `npx wrangler deploy --config schedule/employee/wrangler.jsonc`
+- D1 바인딩: 양쪽 모두 `DB` → `schedule-test-db` (기존 데이터 보존)
+- Secrets·API 토큰·실제 접속키를 공개 저장소에 저장하지 마세요.
 
-- 기존 Worker의 정확한 `name` (Cloudflare 대시보드와 일치)
-- `main: "worker.js"`, `compatibility_date`
-- 기존 D1 데이터베이스 ID 및 `DB` 바인딩 (관리자·직원 **동일 DB**)
-- 관리자 Worker의 `ADMIN_PASSWORD` Secret 등 기존 비밀값 및 배포 관련 설정
+## 새 대화에서
 
-기존 D1을 삭제·초기화하거나 새 DB를 자동 생성하지 마세요. **이 코드는 보관용이며 Cloudflare 연결·배포는 아직 진행하지 않았습니다.**
+> GitHub `amara-an/Temorary/schedule/HANDOFF.md`를 먼저 읽고, `admin/worker.js`와 `employee/worker.js` 최신 코드 기준으로 작업을 이어가자. 코드 수정은 GitHub에 커밋하고 Cloudflare 자동 배포 결과를 확인해줘.
+
+**주의:** 이전 실험용 README보다 `HANDOFF.md` 및 최신 Worker 코드가 우선입니다. 이 폴더는 테스트 프로젝트이며 DB 초기화나 무단 운영용 전환을 하지 않습니다.
