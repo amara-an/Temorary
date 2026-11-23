@@ -240,7 +240,7 @@ const PAGE = `<!doctype html>
 #dailyTemplateView:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 32px);min-height:0;min-width:0;overflow:hidden}
 .daily-sheet-wrap{width:100%;flex:1 1 auto;overflow:auto;height:auto;max-height:none;min-height:0;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
 .daily-sheet-wrap.editing{height:auto;max-height:none;min-height:0;touch-action:pan-x pan-y}
-.daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
+.daily-split{display:flex;align-items:stretch;width:max-content;background:#fff}.daily-split>.daily-grid{flex:none}.daily-split>.daily-right{margin-left:-1px}.daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .daily-grid td{font-size:13px}
 .daily-grid.edit-mode{touch-action:none;user-select:none;-webkit-user-select:none;cursor:cell}
@@ -306,7 +306,7 @@ const PAGE = `<!doctype html>
  .page{margin:0!important;padding:0!important;display:block!important;overflow:visible!important}
  #dailyTemplateView{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important}
  #dailyPrintOnly{display:block!important;width:max-content;max-width:none;zoom:var(--daily-print-scale,0.85)}
- #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
+ #dailyPrintOnly .daily-split{page-break-inside:avoid;break-inside:avoid} #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
  #dailyPrintOnly .daily-grid td{background:#fff!important;color:#000!important;line-height:1.15}
 }
 
@@ -413,7 +413,7 @@ const PAGE = `<!doctype html>
      <small>출퇴근시간은 코드 관리에서만 수정</small>
    </div>
    </div>
-   <div class="daily-sheet-wrap" id="dailySheetWrap"><table class="daily-grid" id="dailySheetTable" aria-label="일간 근무표" tabindex="0"></table></div>
+   <div class="daily-sheet-wrap" id="dailySheetWrap"><div id="dailySheetTable" class="daily-split" role="group" aria-label="일간 근무표" tabindex="0"></div></div>
    <div id="dailyPrintOnly"></div>
   </section>
 
@@ -1187,11 +1187,11 @@ const PAGE = `<!doctype html>
   }
   return {value:Object.prototype.hasOwnProperty.call(dailyOverrides,key)?dailyOverrides[key]:cell.text||''};
  }
- function dailyTableHtml(edit){const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups();let out='<colgroup>'+(edit?'<col style="width:37px">':'');for(const width of w)out+='<col style="width:'+width+'px">';out+='</colgroup>';
-  if(edit){out+='<thead><tr><th class="row-num"></th>';for(let c=0;c<w.length;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
-  out+='<tbody>';const occupied=new Set();for(let r=0;r<h.length;r++){
-   out+='<tr style="height:'+h[r]+'px">';if(edit)out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
-   for(let c=0;c<w.length;c++){if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}
+ function dailyTableHtml(edit,side="all"){const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups(),first=side==="right"?3:0,last=side==="left"?3:w.length;let out='<colgroup>'+(edit?'<col style="width:37px">':'');for(let c=first;c<last;c++)out+='<col style="width:'+w[c]+'px">';out+='</colgroup>';
+  if(edit){out+='<thead><tr><th class="row-num"></th>';for(let c=first;c<last;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
+  out+='<tbody>';const occupied=new Set();const rows=side==='right'?[0,1,2,h.length-1]:Array.from({length:h.length},(_,i)=>i);for(const r of rows){
+   out+='<tr style="height:'+(side==='right'?(r===0?h[0]:r===1?h[1]:r===2?h.slice(2,-1).reduce((a,b)=>a+b,0):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
+   for(let c=first;c<last;c++){if(side==='right'&&r===h.length-1){if(c===first)out+='<td colspan="'+(last-first)+'" class="daily-right-blank"></td>';continue}if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}if(side==='left'&&cell.c+cell.cs>last){continue}
     for(let rr=r;rr<r+cell.rs;rr++)for(let cc=c;cc<c+cell.cs;cc++)if(rr!==r||cc!==c)occupied.add(dailyKey(rr,cc));
     const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
     const sides=[['t','top'],['r','right'],['b','bottom'],['l','left']];
@@ -1199,13 +1199,13 @@ const PAGE = `<!doctype html>
     const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
     let content=text(dat.value||'');if(role==='names'&&!edit&&dat.people?.length)content=dat.people.map(p=>'<button type="button" class="name-tag" data-person="'+text(p.id)+'" title="이름 수정 불가 · 근무 코드 선택">'+text(p.name)+'</button>').join('');
     const grips=edit?'<span class="col-resize" data-col="'+(c+cell.cs-1)+'" title="열 너비 조절" aria-hidden="true"></span><span class="row-resize" data-row="'+(r+cell.rs-1)+'" title="행 높이 조절" aria-hidden="true"></span>':'';
-    out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1?' rowspan="'+cell.rs+'"':'')+(cell.cs>1?' colspan="'+cell.cs+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
+    out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1&&side!=='right'?' rowspan="'+cell.rs+'"':'')+(cell.cs>1?' colspan="'+cell.cs+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
    }
    out+='</tr>';
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailySheet.innerHTML='<table class="daily-grid daily-left'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing,'left')+'</table><table class="daily-grid daily-right'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing,'right')+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
@@ -1446,7 +1446,7 @@ const PAGE = `<!doctype html>
  function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
   const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1.02,716/w,1020/h);
   document.documentElement.style.setProperty('--daily-print-scale',String(Math.max(0.2,scale)));
-  $('dailyPrintOnly').innerHTML='<table class="daily-grid">'+dailyTableHtml(false)+'</table>';
+  $('dailyPrintOnly').innerHTML='<div class="daily-split"><table class="daily-grid daily-left">'+dailyTableHtml(false,'left')+'</table><table class="daily-grid daily-right">'+dailyTableHtml(false,'right')+'</table></div>';
   window.print();
  }
  function dailyBeginInlineEdit(typed=null){
@@ -1502,8 +1502,8 @@ const PAGE = `<!doctype html>
  function dailyPointerMove(e){if(!dailyPointer||dailyPointer.id!==e.pointerId)return;e.preventDefault();const p=dailyPointer;
   if(p.mode==='resize'){
    const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:170,Math.round(p.size+offset)));
-   if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector('colgroup col:nth-child('+(i+2)+')');if(col)col.style.width=newSize+'px'}}
-   else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
+   if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-1)+')');if(col)col.style.width=newSize+'px'}}
+   else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('.daily-left tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
    return;
   }
   if(p.locked)return;const hit=document.elementFromPoint(e.clientX,e.clientY);
