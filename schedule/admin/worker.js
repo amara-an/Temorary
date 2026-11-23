@@ -16,6 +16,9 @@ const PAGE = `<!doctype html>
 *{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button{cursor:pointer;touch-action:manipulation}input,select{border:1px solid #ced8e3;border-radius:7px;padding:7px;background:#fff;color:inherit}button:focus-visible,input:focus-visible{outline:3px solid #4d93e4;outline-offset:1px}
 .app{display:flex;min-height:100dvh}.rail{position:sticky;top:0;height:100dvh;width:58px;flex-shrink:0;background:#223a60;display:flex;flex-direction:column;align-items:center;gap:13px;padding-top:20px}.rail strong{color:#fff;font-size:19px}.rail a{color:#dce7f7;text-decoration:none;font-size:24px;padding:6px 12px;border-radius:9px}.rail a.active{background:#45648b}
 .page{min-width:0;flex:1;padding:16px 18px}.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}.top h1{font-size:21px;margin:0 14px 0 0;color:#163b63}.month{font-size:20px;font-weight:800}.btn{border:1px solid #c9d5e5;background:#fff;border-radius:8px;padding:9px 12px;font-weight:700;white-space:nowrap;color:#1e496c}.btn.primary{background:#2b69a7;color:white;border-color:#2b69a7}
+#dailyToggleEdit{background:#fff0d9;border-color:#d99b3d;color:#85510a;font-weight:800}
+#dailyToggleEdit.content-return{background:#d9f3eb;border-color:#46a88c;color:#12644f}
+#dailyToggleEdit:focus-visible{outline:3px solid #245e9a;outline-offset:2px}
 .roster-label{width:clamp(155px,18vw,260px);max-width:100%;min-width:0;min-height:42px;padding:8px 12px;border:1px solid #c9d5e5;border-radius:8px;background:#fff;color:#173e68;font-weight:750;font-size:15px}
 .roster-label::placeholder{color:#8696a7;font-weight:500}
 .roster-label:focus{outline:2px solid #4d93e4;outline-offset:1px}
@@ -1200,7 +1203,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
