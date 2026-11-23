@@ -1199,7 +1199,7 @@ const PAGE = `<!doctype html>
     const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
     let content=text(dat.value||'');if(role==='names'&&!edit&&dat.people?.length)content=dat.people.map(p=>'<button type="button" class="name-tag" data-person="'+text(p.id)+'" title="이름 수정 불가 · 근무 코드 선택">'+text(p.name)+'</button>').join('');
     const grips=edit?'<span class="col-resize" data-col="'+(c+cell.cs-1)+'" title="열 너비 조절" aria-hidden="true"></span><span class="row-resize" data-row="'+(r+cell.rs-1)+'" title="행 높이 조절" aria-hidden="true"></span>':'';
-    out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1&&side!=='right'?' rowspan="'+cell.rs+'"':'')+(cell.cs>1?' colspan="'+cell.cs+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
+    out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1&&side!=='right'?' rowspan="'+cell.rs+'"':'')+(Math.min(cell.cs,last-c)>1?' colspan="'+Math.min(cell.cs,last-c)+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
    }
    out+='</tr>';
   }
