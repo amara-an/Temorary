@@ -743,15 +743,26 @@ const PAGE = `<!doctype html>
    const month=monthKey(),deadline=$('deadline').value;
    updateSchedule('/api/schedule/deadline',{month,deadline},()=>{state.deadlines[month]=deadline});
  });
- $('leaveCapacity').addEventListener('change',()=>{
-   if(!canEditSchedule()){draw();return}
-   const month=monthKey(),raw=$('leaveCapacity').value.trim();
-   if(raw!==''&&(!/^(0|[1-9][0-9]{0,2})$/.test(raw)||Number(raw)>999)){
-     alert('신청 제한 인원은 0~999명으로 설정하거나 비워두세요.');draw();return;
+ async function saveLeaveCapacity(){
+   const input=$('leaveCapacity');
+   if(!canEditSchedule()){draw();input.blur();return}
+   const month=monthKey(),raw=input.value.trim();
+   if(raw!==''&&(!/^(0|[1-9][0-9]?)$/.test(raw)||Number(raw)>99)){
+     alert('신청 제한 인원은 0~99명으로 설정하거나 비워두세요.');
+     draw();input.blur();return;
    }
    const maxApplicants=raw===''?null:Number(raw);
-   updateSchedule('/api/schedule/leave-limit',{month,maxApplicants},()=>{state.leaveLimits[month]=maxApplicants??''});
+   const current=state.leaveLimits[month]??null;
+   if(current!==maxApplicants){
+     await updateSchedule('/api/schedule/leave-limit',{month,maxApplicants},()=>{state.leaveLimits[month]=maxApplicants});
+   }
+   input.blur();
+ }
+ $('leaveCapacity').addEventListener('change',saveLeaveCapacity);
+ $('leaveCapacity').addEventListener('keydown',e=>{
+   if(e.key==='Enter'){e.preventDefault();saveLeaveCapacity()}
  });
+
 
  // Code editor remains a separate view, but now writes to D1.
  let chosenCode='';
