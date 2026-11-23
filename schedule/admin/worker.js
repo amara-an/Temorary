@@ -1359,8 +1359,10 @@ const PAGE = `<!doctype html>
   dailyDirtyMark(true);dailyPaint();
  }
  function dailyEqualizeLeftRows(){
+  // Equalize the visible A~C rows, not the underlying rows hidden by rowspan.
+  // The right-hand table is rendered independently and must not affect this.
   const start=2,end=dailyTemplate.heights.length-2,heights=dailyTemplate.heights;
-  const cells=dailyTemplate.cells.filter(x=>x.c===0&&x.role==='code'&&x.r>=start&&x.r<=end).sort((a,b)=>a.r-b.r);
+  const cells=dailyTemplate.cells.filter(x=>x.c===0&&x.r>=start&&x.r<=end).sort((a,b)=>a.r-b.r);
   if(cells.length<2)return false;
   if(cells[0].r!==start||cells[cells.length-1].r+cells[cells.length-1].rs-1!==end||cells.some((x,i)=>i>0&&cells[i-1].r+cells[i-1].rs!==x.r))return false;
   const total=heights.slice(start,end+1).reduce((a,b)=>a+b,0);
@@ -1374,7 +1376,7 @@ const PAGE = `<!doctype html>
  }
  function dailyEqualizeRows(){
   if(dailySaving)return;
-  if(!dailyChosenCols.size&&((dailyChosenRows.size>0&&[...dailyChosenRows].every(r=>r>=2&&r<dailyTemplate.heights.length-1))||(!dailyChosenRows.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1))){if(dailyEqualizeLeftRows())return;}
+  if(!dailyChosenCols.size&&((dailyChosenRows.size>0&&[...dailyChosenRows].every(r=>r>=2&&r<dailyTemplate.heights.length-1))||(!dailyChosenRows.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1))){if(dailyEqualizeLeftRows())return;return alert('A~C의 병합 영역이 겹치거나 비어 있습니다. 병합 범위를 확인하세요.');}
   const heights=dailyTemplate.heights;
   const selected=new Set();
   const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
