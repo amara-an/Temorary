@@ -240,6 +240,7 @@ const PAGE = `<!doctype html>
 #dailyTemplateView:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 32px);min-height:0;min-width:0;overflow:hidden}
 .daily-sheet-wrap{width:100%;flex:1 1 auto;overflow:auto;height:auto;max-height:none;min-height:0;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
 .daily-sheet-wrap.editing{height:auto;max-height:none;min-height:0;touch-action:pan-x pan-y}
+.daily-a4-frame{box-sizing:border-box;width:794px;min-height:1123px;padding:23px;background:#fff;border:1px solid #9aabbc;box-shadow:0 3px 12px #0002;position:relative;overflow:visible}
 .daily-split{display:flex;align-items:stretch;width:max-content;background:#fff}.daily-split>.daily-grid{flex:none}.daily-split>.daily-right{margin-left:-1px}.daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .daily-grid td{font-size:13px}
@@ -305,8 +306,8 @@ const PAGE = `<!doctype html>
  .app{display:block!important;height:auto!important;min-height:0!important}
  .page{margin:0!important;padding:0!important;display:block!important;overflow:visible!important}
  #dailyTemplateView{display:block!important;height:auto!important;min-height:0!important;overflow:visible!important}
- #dailyPrintOnly{display:block!important;width:max-content;max-width:none;zoom:var(--daily-print-scale,0.85)}
- #dailyPrintOnly .daily-split{page-break-inside:avoid;break-inside:avoid} #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
+ #dailyPrintOnly{display:block!important;width:198mm;max-width:none;zoom:1}
+ #dailyPrintOnly .daily-split{page-break-inside:avoid;break-inside:avoid} #dailyPrintOnly .daily-a4-frame{width:198mm;min-height:285mm;padding:0;border:0;box-shadow:none} #dailyPrintOnly .daily-grid{width:max-content!important;page-break-inside:avoid;break-inside:avoid}
  #dailyPrintOnly .daily-grid td{background:#fff!important;color:#000!important;line-height:1.15}
 }
 
@@ -413,7 +414,7 @@ const PAGE = `<!doctype html>
      <small>출퇴근시간은 코드 관리에서만 수정</small>
    </div>
    </div>
-   <div class="daily-sheet-wrap" id="dailySheetWrap"><div id="dailySheetTable" class="daily-split" role="group" aria-label="일간 근무표" tabindex="0"></div></div>
+   <div class="daily-sheet-wrap" id="dailySheetWrap"><div class="daily-a4-frame"><div id="dailySheetTable" class="daily-split" role="group" aria-label="일간 근무표" tabindex="0"></div></div></div>
    <div id="dailyPrintOnly"></div>
   </section>
 
@@ -1187,8 +1188,8 @@ const PAGE = `<!doctype html>
   }
   return {value:Object.prototype.hasOwnProperty.call(dailyOverrides,key)?dailyOverrides[key]:cell.text||''};
  }
- function dailyTableHtml(edit,side="all"){const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups(),first=side==="right"?3:0,last=side==="left"?3:w.length;let out='<colgroup>'+(edit?'<col style="width:37px">':'');for(let c=first;c<last;c++)out+='<col style="width:'+w[c]+'px">';out+='</colgroup>';
-  if(edit){out+='<thead><tr><th class="row-num"></th>';for(let c=first;c<last;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
+ function dailyTableHtml(edit,side="all"){const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups(),first=side==="right"?3:0,last=side==="left"?3:w.length;let out='<colgroup>'+(edit&&side!=='right'?'<col style="width:37px">':'');for(let c=first;c<last;c++)out+='<col style="width:'+w[c]+'px">';out+='</colgroup>';
+  if(edit){out+='<thead><tr>'+(side!=='right'?'<th class="row-num"></th>':'');for(let c=first;c<last;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
   out+='<tbody>';const occupied=new Set();const rows=side==='right'?[0,1,2,h.length-1]:Array.from({length:h.length},(_,i)=>i);for(const r of rows){
    out+='<tr style="height:'+(side==='right'?(r===0?h[0]:r===1?h[1]:r===2?h.slice(2,-1).reduce((a,b)=>a+b,0):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
    for(let c=first;c<last;c++){if(side==='right'&&r===h.length-1){if(c===first)out+='<td colspan="'+(last-first)+'" class="daily-right-blank"></td>';continue}if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}if(side==='left'&&cell.c+cell.cs>last){continue}
@@ -1444,9 +1445,9 @@ const PAGE = `<!doctype html>
   finally{dailySaving=false;$('dailyTemplateView').classList.remove('saving');dailyUndoButtons()}
  }
  function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
-  const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1.02,716/w,1020/h);
+  const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1,748/w,1077/h);
   document.documentElement.style.setProperty('--daily-print-scale',String(Math.max(0.2,scale)));
-  $('dailyPrintOnly').innerHTML='<div class="daily-split"><table class="daily-grid daily-left">'+dailyTableHtml(false,'left')+'</table><table class="daily-grid daily-right">'+dailyTableHtml(false,'right')+'</table></div>';
+  $('dailyPrintOnly').innerHTML='<div class="daily-a4-frame"><div class="daily-split" style="zoom:'+Math.max(0.2,scale)+'"><table class="daily-grid daily-left">'+dailyTableHtml(false,'left')+'</table><table class="daily-grid daily-right">'+dailyTableHtml(false,'right')+'</table></div></div>';
   window.print();
  }
  function dailyBeginInlineEdit(typed=null){
@@ -1502,7 +1503,7 @@ const PAGE = `<!doctype html>
  function dailyPointerMove(e){if(!dailyPointer||dailyPointer.id!==e.pointerId)return;e.preventDefault();const p=dailyPointer;
   if(p.mode==='resize'){
    const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:170,Math.round(p.size+offset)));
-   if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-1)+')');if(col)col.style.width=newSize+'px'}}
+   if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-2)+')');if(col)col.style.width=newSize+'px'}}
    else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('.daily-left tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
    return;
   }
