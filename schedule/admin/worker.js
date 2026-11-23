@@ -378,7 +378,7 @@ const PAGE = `<!doctype html>
     <div class="daily-edit-tools">
      <button class="btn" type="button" id="dailyAddRow">행 +</button><button class="btn" type="button" id="dailyRemoveRow">행 −</button>
      <button class="btn" type="button" id="dailyAddCol">열 +</button><button class="btn" type="button" id="dailyRemoveCol">열 −</button>
-     <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">병합 해제</button><button class="btn" type="button" id="dailyEqualizeRows" title="선택한 행들의 높이를 균등 배분 (선택한 행 높이 합계 유지)">높이 균등</button>
+     <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">병합 해제</button><button class="btn" type="button" id="dailyEqualizeRows" title="A~C 근무 셀 선택 시 전체 근무 행 높이를 균등 배분, 그 외에는 선택한 행 높이 균등">높이 균등</button>
      <label>셀 <strong id="dailyCoord">A1</strong></label>
      <div class="daily-border-picker" id="dailyBorderPicker">
       <button class="btn" type="button" id="dailyBorderToggle" aria-expanded="false" aria-controls="dailyBorderPanel" title="선택한 셀의 테두리 설정">테두리 ▾</button>
@@ -1357,8 +1357,23 @@ const PAGE = `<!doctype html>
   dailySelected={r:start,c:0};dailyAnchor={...dailySelected};dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();
   dailyDirtyMark(true);dailyPaint();
  }
+ function dailyEqualizeLeftRows(){
+  const start=2,end=dailyTemplate.heights.length-2,heights=dailyTemplate.heights;
+  const cells=dailyTemplate.cells.filter(x=>x.c===0&&x.role==='code'&&x.r>=start&&x.r<=end).sort((a,b)=>a.r-b.r);
+  if(cells.length<2)return false;
+  if(cells[0].r!==start||cells[cells.length-1].r+cells[cells.length-1].rs-1!==end||cells.some((x,i)=>i>0&&cells[i-1].r+cells[i-1].rs!==x.r))return false;
+  const total=heights.slice(start,end+1).reduce((a,b)=>a+b,0);
+  const next=heights.slice();
+  for(let i=0;i<cells.length;i++){
+   const cell=cells[i],target=Math.floor((i+1)*total/cells.length)-Math.floor(i*total/cells.length);
+   for(let j=0;j<cell.rs;j++)next[cell.r+j]=Math.floor((j+1)*target/cell.rs)-Math.floor(j*target/cell.rs);
+  }
+  if(next.every((n,i)=>n===heights[i]))return true;
+  dailyRemember();dailyTemplate.heights=next;dailyDirtyMark(true);dailyPaint();return true;
+ }
  function dailyEqualizeRows(){
   if(dailySaving)return;
+  if(dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1&&!dailyChosenRows.size&&!dailyChosenCols.size){if(dailyEqualizeLeftRows())return;}
   const heights=dailyTemplate.heights;
   const selected=new Set();
   const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
