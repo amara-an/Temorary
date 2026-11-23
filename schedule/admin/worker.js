@@ -355,10 +355,13 @@ const PAGE = `<!doctype html>
     <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button>
    </div>
    <div class="daily-mini-status" id="dailyStatus" role="status"></div>
-   <div id="dailyContentTools" hidden aria-hidden="true">
+   <div id="dailyContentTools" hidden>
     <label>셀 <strong id="dailyContentCoord">A1</strong></label>
     <label>내용 <input id="dailyCellText" type="text" maxlength="140" aria-label="셀 내용"></label>
     <label>내용 적용 <select id="dailyTextScope"><option value="date">선택일</option><option value="template">공통 양식</option></select></label>
+     <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
+     <label>폰트 <input id="dailyFontSize" type="number" min="9" max="42" step="1" aria-label="글꼴 크기"></label>
+     <label>굵기 <input id="dailyBold" type="checkbox" aria-label="굵게"></label>
    </div>
    <div id="dailyEditTools" hidden>
     <div class="daily-edit-tools">
@@ -366,9 +369,6 @@ const PAGE = `<!doctype html>
      <button class="btn" type="button" id="dailyAddCol">열 +</button><button class="btn" type="button" id="dailyRemoveCol">열 −</button>
      <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">해제</button><button class="btn" type="button" id="dailyEqualizeRows" title="선택한 행들의 높이를 균등 배분 (선택한 행 높이 합계 유지)">높이 균등</button>
      <label>셀 <strong id="dailyCoord">A1</strong></label>
-     <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
-     <label>폰트 <input id="dailyFontSize" type="number" min="9" max="42" step="1" aria-label="글꼴 크기"></label>
-     <label>굵기 <input id="dailyBold" type="checkbox" aria-label="굵게"></label>
      <div class="daily-border-picker" id="dailyBorderPicker">
       <button class="btn" type="button" id="dailyBorderToggle" aria-expanded="false" aria-controls="dailyBorderPanel" title="선택한 셀의 테두리 설정">테두리 ▾</button>
       <div class="daily-border-panel" id="dailyBorderPanel" hidden>
@@ -1193,7 +1193,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=true;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailySheet.innerHTML=dailyTableHtml(dailyEditing);dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
