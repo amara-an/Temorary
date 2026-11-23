@@ -1,3 +1,4 @@
+// v20.15.0: month-wide daily XLSX export (one sheet per date).
 // v20.14.8: equalize selected row heights only; do not modify merged cell spans.
 // v20.14.5: fill remaining screen with daily sheet editor; preserve inline input and A1 notes.
 // Cloudflare Worker v20.14.1: recover code/roster loading by decoupling leave quota schema; preserve daily editor.
@@ -325,6 +326,7 @@ const PAGE = `<!doctype html>
       <label class="deadline">휴무 마감일 <input type="date" id="deadline"></label>
       <label class="deadline">신청 제한 인원 <input type="number" id="leaveCapacity" min="0" max="999" step="1" placeholder="미설정" title="선택한 월의 날짜별 최대 휴무 인원"></label>
       <button class="btn push" id="exportExcel" type="button">엑셀 내보내기</button>
+      <button class="btn" id="exportDailyMonth" type="button">일일표 월 전체 엑셀</button>
       <button class="btn primary" id="publishSchedule" type="button">배포하기</button>
     </div>
     <div class="notice" id="scheduleDbStatus" role="status">D1 근무표 데이터 불러오는 중… 실제 직원 개인정보는 넣지 마세요.</div>
@@ -1086,6 +1088,16 @@ const PAGE = `<!doctype html>
    document.body.appendChild(link);link.click();link.remove();
  });
 
+ $('exportDailyMonth').addEventListener('click',async()=>{
+   if(!scheduleReady||scheduleBusy){alert('D1 근무표를 불러온 후 내보내세요.');return}
+   const btn=$('exportDailyMonth'),month=monthKey();btn.disabled=true;btn.textContent='생성 중…';
+   try{
+     const res=await fetch('/api/export/daily-month.xlsx?month='+encodeURIComponent(month),{credentials:'same-origin',cache:'no-store'});
+     if(!res.ok){let msg='일일표 내보내기에 실패했습니다.';try{msg=(await res.json()).error||msg}catch(_){}throw Error(msg)}
+     const url=URL.createObjectURL(await res.blob()),a=document.createElement('a');
+     a.href=url;a.download='daily_'+month+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+   }catch(e){alert(e.message)}finally{btn.disabled=false;btn.textContent='일일표 월 전체 엑셀'}
+ });
  $('navPeople').addEventListener('click',()=>switchView('people'));
  $('peopleBackRoster').addEventListener('click',()=>switchView('roster'));
  // Auth is cookie/session-based, not the browser's sticky HTTP Basic cache.
@@ -1668,6 +1680,14 @@ async function employeeApi(request,env,url){
       'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'
     }});
   }
+  if(path==='/api/export/daily-month.xlsx'&&method==='GET'){
+    const month=url.searchParams.get('month');
+    if(!validMonth(month))return json({ok:false,error:'잘못된 월입니다.'},400);
+    try{
+      const bytes=await makeDailyMonthXlsx(db,month);
+      return new Response(bytes,{headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':'attachment; filename="daily_'+month+'.xlsx"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+    }catch(e){console.error('Daily XLSX export',e);return json({ok:false,error:e.message||'일일표 생성 실패'},500)}
+  }
   if(path==='/api/daily-commit'&&method==='PUT'){
     await ensureScheduleSchema(db);
     await db.prepare('CREATE TABLE IF NOT EXISTS daily_template_settings (id INTEGER PRIMARY KEY CHECK(id=1), template_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
@@ -2221,6 +2241,87 @@ function makeExcelXlsx(data){
   const bookRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
   return zipExcelStore([['[Content_Types].xml',contents],['_rels/.rels',rels],['xl/workbook.xml',book],['xl/_rels/workbook.xml.rels',bookRels],['xl/styles.xml',styles],['xl/worksheets/sheet1.xml',worksheet]]);
 }
+
+async function makeDailyMonthXlsx(db,month){
+  await ensureScheduleSchema(db);
+  const [year,mo]=month.split('-').map(Number),count=new Date(Date.UTC(year,mo,0)).getUTCDate();
+  await db.prepare('CREATE TABLE IF NOT EXISTS daily_template_settings (id INTEGER PRIMARY KEY CHECK(id=1), template_json TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS daily_day_contents (work_date TEXT PRIMARY KEY NOT NULL,content_json TEXT NOT NULL,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)').run();
+  const templateRow=await db.prepare('SELECT template_json FROM daily_template_settings WHERE id=1').first();
+  if(!templateRow)throw new Error('저장된 일일표 공통 양식이 없습니다. 일일 근무표에서 양식을 먼저 저장하세요.');
+  let t;try{t=JSON.parse(templateRow.template_json)}catch(_){throw new Error('일일표 양식 데이터가 올바르지 않습니다.')}
+  if(!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||!t.widths.length||!t.heights.length||t.widths.length>100||t.heights.length>300)throw new Error('일일표 양식 크기가 올바르지 않습니다.');
+  const start=month+'-01',end=new Date(Date.UTC(year,mo,1)).toISOString().slice(0,10);
+  const result=await db.batch([
+    db.prepare('SELECT s.employee_id,e.name,s.work_date,s.code FROM schedule_shifts s JOIN employees e ON e.id=s.employee_id AND e.active=1 WHERE s.work_date>=? AND s.work_date<? ORDER BY e.name,e.id').bind(start,end),
+    db.prepare('SELECT code,start_time AS start,end_time AS end FROM schedule_codes ORDER BY start_time,code'),
+    db.prepare("SELECT l.work_date,l.employee_id,e.name,l.leave_type FROM schedule_leaves l JOIN employees e ON e.id=l.employee_id AND e.active=1 WHERE l.work_date>=? AND l.work_date<? AND l.status='active' ORDER BY e.name,e.id").bind(start,end),
+    db.prepare('SELECT work_date,content_json FROM daily_day_contents WHERE work_date>=? AND work_date<?').bind(start,end)
+  ]);
+  const shifts=new Map(),leaves=new Map(),overrides=new Map();
+  for(const sh of result[0].results||[]){if(!shifts.has(sh.work_date))shifts.set(sh.work_date,[]);shifts.get(sh.work_date).push(sh)}
+  for(const lv of result[2].results||[]){if(!leaves.has(lv.work_date))leaves.set(lv.work_date,[]);leaves.get(lv.work_date).push(lv)}
+  for(const x of result[3].results||[]){try{overrides.set(x.work_date,JSON.parse(x.content_json)||{})}catch(_){}}
+  const catalog=new Map((result[1].results||[]).map(c=>[c.code,c]));
+  const roles={code:[],time:[],names:[]};
+  for(const c of t.cells)if(roles[c.role])roles[c.role].push(c);
+  for(const k of Object.keys(roles))roles[k].sort((a,b)=>a.r-b.r||a.c-b.c);
+  const borders=['<border/>'],borderIds=new Map([['0,0,0,0',0]]),fonts=[],fontIds=new Map(),styles=[],styleIds=new Map();
+  function cellStyle(cell){
+    const b=cell.borders||{},v=['l','r','t','b'].map(k=>Number.isInteger(b[k])?Math.max(0,Math.min(3,b[k])):1),bk=v.join(',');
+    if(!borderIds.has(bk)){
+      const side=(n,k)=>'<'+k+(n?' style="'+['','thin','medium','thick'][n]+'"':'')+'>'+(n?'<color rgb="FF222222"/>':'')+'</'+k+'>';
+      borderIds.set(bk,borders.length);borders.push('<border>'+side(v[0],'left')+side(v[1],'right')+side(v[2],'top')+side(v[3],'bottom')+'<diagonal/></border>');
+    }
+    const size=Math.max(9,Math.min(42,Number(cell.fontSize)||13)),fk=size+':'+(cell.bold?1:0);
+    if(!fontIds.has(fk)){fontIds.set(fk,fonts.length);fonts.push('<font>'+(cell.bold?'<b/>':'')+'<sz val="'+size+'"/><name val="Malgun Gothic"/></font>')}
+    const sk=fontIds.get(fk)+':'+borderIds.get(bk);
+    if(!styleIds.has(sk)){styleIds.set(sk,styles.length);styles.push('<xf numFmtId="0" fontId="'+fontIds.get(fk)+'" fillId="0" borderId="'+borderIds.get(bk)+'" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>')}
+    return styleIds.get(sk);
+  }
+  const sheets=[],files=[];
+  for(let day=1;day<=count;day++){
+    const date=month+'-'+String(day).padStart(2,'0'),dayShifts=shifts.get(date)||[],dayLeaves=leaves.get(date)||[],dayOverrides=overrides.get(date)||{};
+    const grouped=new Map();
+    for(const sh of dayShifts){if(!sh.code||sh.code==='휴'||sh.code==='연')continue;
+      if(!grouped.has(sh.code))grouped.set(sh.code,{code:sh.code,info:catalog.get(sh.code),people:[]});
+      grouped.get(sh.code).people.push(sh.name);
+    }
+    const groups=[...grouped.values()].sort((a,b)=>String(a.info?.start||'99:99').localeCompare(String(b.info?.start||'99:99'))||a.code.localeCompare(b.code,'ko'));
+    const occupied=new Set(),merges=[],rows=[];
+    for(let r=0;r<t.heights.length;r++){
+      const cells=[];
+      for(let c=0;c<t.widths.length;c++){
+        const key=r+','+c;if(occupied.has(key))continue;
+        const cell=t.cells.find(x=>r>=x.r&&r<x.r+x.rs&&c>=x.c&&c<x.c+x.cs)||{r,c,rs:1,cs:1,text:''};
+        if(cell.r!==r||cell.c!==c){occupied.add(key);continue}
+        const rs=Math.max(1,Math.min(t.heights.length-r,cell.rs||1)),cs=Math.max(1,Math.min(t.widths.length-c,cell.cs||1));
+        for(let rr=r;rr<r+rs;rr++)for(let cc=c;cc<c+cs;cc++)if(rr!==r||cc!==c)occupied.add(rr+','+cc);
+        if(rs>1||cs>1)merges.push(excelCol(c)+(r+1)+':'+excelCol(c+cs-1)+(r+rs));
+        const role=cell.role||'',ix=roles[role]?.findIndex(x=>x.r===r&&x.c===c)??-1,g=ix>=0?groups[ix]:null;
+        let value=Object.prototype.hasOwnProperty.call(dayOverrides,key)?dayOverrides[key]:cell.text||'';
+        if(role==='date')value=date.replace(/-/g,'. ')+' ('+['일','월','화','수','목','금','토'][new Date(Date.UTC(year,mo-1,day)).getUTCDay()]+')';
+        else if(role==='leave'||role==='annual')value=dayLeaves.filter(x=>x.leave_type===(role==='leave'?'full':'annual')).map(x=>x.name).join('\n');
+        else if(role==='code')value=g?.code||'';
+        else if(role==='time')value=g?(g.info?(g.info.start||'—')+' ~ '+(g.info.end||'—'):'시간 미설정'):'';
+        else if(role==='names')value=g?g.people.join(' · '):'';
+        cells.push('<c r="'+excelCol(c)+(r+1)+'" s="'+cellStyle(cell)+'" t="inlineStr"><is><t xml:space="preserve">'+excelXMLText(value)+'</t></is></c>');
+      }
+      rows.push('<row r="'+(r+1)+'" ht="'+Math.max(9,Number(t.heights[r])||37)*0.75+'" customHeight="1">'+cells.join('')+'</row>');
+    }
+    const cols=t.widths.map((w,i)=>'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+Math.max(3,Number(w)||90)/7+'" customWidth="1"/>').join('');
+    const xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:'+excelCol(t.widths.length-1)+t.heights.length+'"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"/></sheetViews><sheetFormatPr defaultRowHeight="20"/><cols>'+cols+'</cols><sheetData>'+rows.join('')+'</sheetData>'+(merges.length?'<mergeCells count="'+merges.length+'">'+merges.map(m=>'<mergeCell ref="'+m+'"/>').join('')+'</mergeCells>':'')+'<printOptions horizontalCentered="1"/><pageMargins left="0.2" right="0.2" top="0.3" bottom="0.3" header="0" footer="0"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="1"/></worksheet>';
+    sheets.push('<sheet name="'+String(day).padStart(2,'0')+'일" sheetId="'+day+'" r:id="rId'+day+'"/>');
+    files.push(['xl/worksheets/sheet'+day+'.xml',xml]);
+  }
+  const stylesXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="'+fonts.length+'">'+fonts.join('')+'</fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="'+borders.length+'">'+borders.join('')+'</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="'+styles.length+'">'+styles.join('')+'</cellXfs></styleSheet>';
+  const workbook='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>'+sheets.join('')+'</sheets></workbook>';
+  const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+Array.from({length:count},(_,i)=>'<Relationship Id="rId'+(i+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+1)+'.xml"/>').join('')+'<Relationship Id="rId'+(count+1)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  const types='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+Array.from({length:count},(_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>';
+  const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  return zipExcelStore([['[Content_Types].xml',types],['_rels/.rels',rootRels],['xl/workbook.xml',workbook],['xl/_rels/workbook.xml.rels',rels],['xl/styles.xml',stylesXml],...files]);
+}
+
 function zipExcelStore(files){
   const encoder=new TextEncoder();const parts=[];const central=[];
   let offset=0;
