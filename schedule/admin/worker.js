@@ -356,7 +356,6 @@ const PAGE = `<!doctype html>
    <div class="daily-topbar">
     <h1>일일 근무표</h1>
     <div class="daily-date-controls"><button class="btn" type="button" id="dailyPrev" aria-label="전날">◀</button><input type="date" id="dailyDate" aria-label="일간 근무표 날짜"><button class="btn" type="button" id="dailyNext" aria-label="다음 날">▶</button></div>
-    <button class="btn push" type="button" id="dailyBack">월간으로</button>
     <button class="btn" type="button" id="dailyPrint">출력하기</button>
     <button class="btn" type="button" id="dailyUndo" title="되돌리기 · Windows Ctrl+Z / Mac ⌘+Z" disabled>↶</button><button class="btn" type="button" id="dailyRedo" title="다시 실행 · Windows Ctrl+Y 또는 Ctrl+Shift+Z / Mac ⌘+Shift+Z" disabled>↷</button>
     <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button>
@@ -1504,7 +1503,7 @@ const PAGE = `<!doctype html>
  document.addEventListener('pointerdown',e=>{if(!e.target.closest('.daily-employee-lookup'))dailyCloseEmployeeSuggestions()});
  $('dailyApplyCode').addEventListener('click',dailyApplyLocalCode);
  window.addEventListener('beforeunload',e=>{if(dailyHasChanges()){e.preventDefault();e.returnValue=''}});
- $('navDaily').addEventListener('click',()=>switchView('daily'));$('dailyBack').addEventListener('click',()=>switchView('roster'));
+ $('navDaily').addEventListener('click',()=>switchView('daily'));
 
  paintHeaders();paintPeople();draw();loadEmployees().then(()=>loadScheduleMonth());
 })();
