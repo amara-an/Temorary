@@ -276,7 +276,14 @@ const PAGE = `<!doctype html>
 .daily-edit-tools,.daily-content-tools{border:1px solid #cbd7e6;background:#f7fafd;border-radius:9px;padding:9px;margin:9px 0;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .daily-edit-tools label,.daily-content-tools label{font-size:12px;color:#536a84;display:flex;align-items:center;gap:5px}
 .daily-edit-tools input,.daily-edit-tools select,.daily-content-tools input,.daily-content-tools select{min-height:34px;max-width:110px;border-radius:6px;border:1px solid #b4c6d8;padding:3px 6px}
-#dailyContentTools:not([hidden]){display:flex;flex-wrap:nowrap;gap:6px;overflow-x:auto;overflow-y:hidden;align-items:center;white-space:nowrap}#dailyContentTools label{flex:0 0 auto;white-space:nowrap;gap:4px}#dailyContentTools #dailyRole{width:145px;max-width:none}#dailyContentTools #dailyFontSize{width:48px;max-width:48px}#dailyContentTools #dailyBold{min-height:auto;width:18px;height:18px}
+#dailyContentTools:not([hidden]){display:flex;flex-wrap:nowrap;gap:6px;align-items:center;white-space:nowrap}#dailyContentTools label{flex:0 0 auto;white-space:nowrap;gap:4px}#dailyContentTools #dailyRole{width:145px;max-width:none}#dailyContentTools #dailyFontSize{width:48px;max-width:48px}#dailyContentTools #dailyBold{min-height:auto;width:18px;height:18px}
+.daily-input-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;margin:6px 0 8px;padding:0 0 3px}
+.daily-input-row #dailyContentTools{flex:0 0 auto;margin:0;padding:6px 8px;min-width:0}
+.daily-input-row #dailyCodeEditor{flex:1 0 auto;margin:0;padding:6px 8px;gap:6px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
+.daily-input-row #dailyEditTools:not([hidden]){flex:1 0 auto}
+.daily-input-row #dailyEmployeeSearch{width:150px;min-width:150px;max-width:150px}
+.daily-input-row #dailyEmployeeCode{min-width:100px;width:110px;max-width:110px}
+.daily-input-row #dailyCodeEditor small{font-size:11px}
 .daily-grid .daily-inline-input{width:100%;min-width:0;min-height:30px;height:100%;padding:4px 7px;border:1px solid #2b69a7;border-radius:3px;background:#fff;color:#172b3f;font:inherit;box-sizing:border-box}
 .daily-edit-tools .daily-break{flex-basis:100%;height:0}
 .daily-edit-tools .daily-save-status{margin-left:auto;font-size:12px;color:#506781}
@@ -355,6 +362,7 @@ const PAGE = `<!doctype html>
     <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button>
    </div>
    <div class="daily-mini-status" id="dailyStatus" role="status"></div>
+   <div class="daily-input-row">
    <div id="dailyContentTools" hidden>
     <label>셀 <strong id="dailyContentCoord">A1</strong></label>
      <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
@@ -399,6 +407,7 @@ const PAGE = `<!doctype html>
      <label>코드 <select id="dailyEmployeeCode" aria-label="근무 코드 선택"></select></label>
      <button class="btn" id="dailyApplyCode" type="button">코드 적용</button>
      <small>출퇴근시간은 코드 관리에서만 수정</small>
+   </div>
    </div>
    <div class="daily-sheet-wrap" id="dailySheetWrap"><table class="daily-grid" id="dailySheetTable" aria-label="일간 근무표" tabindex="0"></table></div>
    <div id="dailyPrintOnly"></div>
