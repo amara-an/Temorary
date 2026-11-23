@@ -276,14 +276,14 @@ const PAGE = `<!doctype html>
 .daily-edit-tools,.daily-content-tools{border:1px solid #cbd7e6;background:#f7fafd;border-radius:9px;padding:9px;margin:9px 0;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
 .daily-edit-tools label,.daily-content-tools label{font-size:12px;color:#536a84;display:flex;align-items:center;gap:5px}
 .daily-edit-tools input,.daily-edit-tools select,.daily-content-tools input,.daily-content-tools select{min-height:34px;max-width:110px;border-radius:6px;border:1px solid #b4c6d8;padding:3px 6px}
-#dailyContentTools:not([hidden]){display:flex;flex-wrap:nowrap;gap:6px;align-items:center;white-space:nowrap}#dailyContentTools label{flex:0 0 auto;white-space:nowrap;gap:4px}#dailyContentTools #dailyRole{width:145px;max-width:none}#dailyContentTools #dailyFontSize{width:48px;max-width:48px}#dailyContentTools #dailyBold{min-height:auto;width:18px;height:18px}
-.daily-input-row{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;margin:6px 0 8px;padding:0 0 3px}
-.daily-input-row #dailyContentTools{flex:0 0 auto;margin:0;padding:6px 8px;min-width:0}
-.daily-input-row #dailyCodeEditor{flex:1 0 auto;margin:0;padding:6px 8px;gap:6px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
+#dailyContentTools:not([hidden]){display:flex;flex-wrap:nowrap;gap:6px;align-items:center;white-space:nowrap}#dailyContentTools label{flex:0 0 auto;white-space:nowrap;gap:4px}#dailyContentTools #dailyRole{width:125px;max-width:125px}#dailyContentTools #dailyFontSize{width:48px;max-width:48px}#dailyContentTools #dailyBold{min-height:auto;width:18px;height:18px}
+.daily-input-row{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:visible;margin:5px 0 8px;min-width:0;width:100%}
+.daily-input-row #dailyContentTools{flex:0 0 auto;margin:0;padding:5px 6px;min-width:0;gap:4px;border:0;background:transparent}
+.daily-input-row #dailyCodeEditor{flex:1 1 auto;margin:0;padding:5px 6px;gap:5px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
 .daily-input-row #dailyEditTools:not([hidden]){flex:1 0 auto}
-.daily-input-row #dailyEmployeeSearch{width:150px;min-width:150px;max-width:150px}
-.daily-input-row #dailyEmployeeCode{min-width:100px;width:110px;max-width:110px}
-.daily-input-row #dailyCodeEditor small{font-size:11px}
+.daily-input-row .daily-employee-lookup{width:150px;min-width:110px;flex:0 1 150px}.daily-input-row #dailyEmployeeSearch{width:100%;min-width:0;max-width:none}
+.daily-input-row #dailyEmployeeCode{min-width:90px;width:110px;max-width:110px}
+.daily-input-row #dailyCodeEditor small{display:none}
 .daily-grid .daily-inline-input{width:100%;min-width:0;min-height:30px;height:100%;padding:4px 7px;border:1px solid #2b69a7;border-radius:3px;background:#fff;color:#172b3f;font:inherit;box-sizing:border-box}
 .daily-edit-tools .daily-break{flex-basis:100%;height:0}
 .daily-edit-tools .daily-save-status{margin-left:auto;font-size:12px;color:#506781}
