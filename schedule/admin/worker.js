@@ -1216,7 +1216,7 @@ const PAGE = `<!doctype html>
   $('dailyFontSize').value=cell.fontSize||13;$('dailyBold').checked=!!cell.bold;$('dailyAlign').textContent='정렬: '+({left:'왼쪽',center:'가운데',right:'오른쪽'}[cell.align]||'가운데');$('dailyColWidth').value=dailyTemplate.widths[cell.c];$('dailyRowHeight').value=dailyTemplate.heights[cell.r];
   for(const el of dailySheet.querySelectorAll('td[data-r]')){const r=+el.dataset.r,c=+el.dataset.c,inside=dailyRange&&r>=dailyRange.r1&&r<=dailyRange.r2&&c>=dailyRange.c1&&c<=dailyRange.c2;
    el.classList.toggle('selected',r===cell.r&&c===cell.c);
-   el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan));
+   el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan)&&!(c>=3&&[...dailyChosenRows].every(row=>row>=2&&row<dailyTemplate.heights.length-1)));
    el.classList.toggle('multi-selected',dailyMarkedCells.has(dailyKey(r,c)));
   }
   for(const th of dailySheet.querySelectorAll('thead th[data-col]'))th.classList.toggle('col-picked',dailyChosenCols.has(+th.dataset.col));
@@ -1373,7 +1373,7 @@ const PAGE = `<!doctype html>
  }
  function dailyEqualizeRows(){
   if(dailySaving)return;
-  if(dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1&&!dailyChosenRows.size&&!dailyChosenCols.size){if(dailyEqualizeLeftRows())return;}
+  if(!dailyChosenCols.size&&((dailyChosenRows.size>0&&[...dailyChosenRows].every(r=>r>=2&&r<dailyTemplate.heights.length-1))||(!dailyChosenRows.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1))){if(dailyEqualizeLeftRows())return;}
   const heights=dailyTemplate.heights;
   const selected=new Set();
   const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
