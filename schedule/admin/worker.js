@@ -1201,7 +1201,7 @@ const PAGE = `<!doctype html>
   }}
   const rows=side==='right'?[0,1,2,h.length-1]:compact?[0,1,...bands.map(x=>x.r),h.length-1]:Array.from({length:h.length},(_,i)=>i);
   for(const r of rows){
-   out+='<tr style="height:'+(side==='right'?(r===0?t.rightHeights[0]:r===1?t.rightHeights[1]:r===2?t.rightHeights[2]:t.rightHeights[3]):compact&&r>=2&&r<workEnd?h.slice(r,r+bands.find(b=>b.r===r).span).reduce((a,b)=>a+b,0):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
+   out+='<tr style="height:'+(side==='right'?(r===0?t.rightHeights[0]:r===1?t.rightHeights[1]:r===2?t.rightHeights[2]:t.rightHeights[3]):compact&&r>=2&&r<workEnd?h.slice(r,r+bands.find(b=>b.r===r).span).reduce((a,b)=>a+b,0):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
    for(let c=first;c<last;c++){if(side==='right'&&r===h.length-1){if(c===first)out+='<td colspan="'+(last-first)+'" class="daily-right-blank"></td>';continue}if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}if(side==='left'&&cell.c+cell.cs>last){continue}
     for(let rr=r;rr<r+cell.rs;rr++)for(let cc=c;cc<c+cell.cs;cc++)if(rr!==r||cc!==c)occupied.add(dailyKey(rr,cc));
     const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
