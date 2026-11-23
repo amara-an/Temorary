@@ -357,10 +357,10 @@ const PAGE = `<!doctype html>
    <div class="daily-mini-status" id="dailyStatus" role="status"></div>
    <div id="dailyContentTools" hidden>
     <label>셀 <strong id="dailyContentCoord">A1</strong></label>
-    <input id="dailyTextScope" type="hidden" value="date">
      <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
      <label>폰트 <input id="dailyFontSize" type="number" min="9" max="42" step="1" aria-label="글꼴 크기"></label>
      <label>굵기 <input id="dailyBold" type="checkbox" aria-label="굵게"></label>
+     <button class="btn" type="button" id="dailyAlign" title="선택한 셀의 내용 정렬 변경 (왼쪽 → 가운데 → 오른쪽)">정렬: 가운데</button>
    </div>
    <div id="dailyEditTools" hidden>
     <div class="daily-edit-tools">
@@ -1183,7 +1183,7 @@ const PAGE = `<!doctype html>
     const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
     const sides=[['t','top'],['r','right'],['b','bottom'],['l','left']];
     const borderStyle=sides.map(([key,side])=>{const n=Number.isInteger(borders[key])&&borders[key]>=0&&borders[key]<=3?borders[key]:1;return 'border-'+side+':'+n+'px '+(n?'solid #222':'none transparent')+';'}).join('');
-    const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';'+borderStyle;
+    const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
     let content=text(dat.value||'');if(role==='names'&&!edit&&dat.people?.length)content=dat.people.map(p=>'<button type="button" class="name-tag" data-person="'+text(p.id)+'" title="이름 수정 불가 · 근무 코드 선택">'+text(p.name)+'</button>').join('');
     const grips=edit?'<span class="col-resize" data-col="'+(c+cell.cs-1)+'" title="열 너비 조절" aria-hidden="true"></span><span class="row-resize" data-row="'+(r+cell.rs-1)+'" title="행 높이 조절" aria-hidden="true"></span>':'';
     out+='<td data-r="'+r+'" data-c="'+c+'"'+(cell.rs>1?' rowspan="'+cell.rs+'"':'')+(cell.cs>1?' colspan="'+cell.cs+'"':'')+' class="'+(role==='names'?'name-cell ':role?'locked-cell ':'')+'" style="'+style+'">'+content+grips+'</td>';
@@ -1200,7 +1200,7 @@ const PAGE = `<!doctype html>
   else if(dailyMarkedCells.size>1)coord=dailyMarkedCells.size+'개 셀';
   $('dailyCoord').textContent=coord;$('dailyContentCoord').textContent=coord;
   const role=cell.role||'',key=dailyKey(cell.r,cell.c);$('dailyRole').value=role;
-  $('dailyFontSize').value=cell.fontSize||13;$('dailyBold').checked=!!cell.bold;$('dailyColWidth').value=dailyTemplate.widths[cell.c];$('dailyRowHeight').value=dailyTemplate.heights[cell.r];
+  $('dailyFontSize').value=cell.fontSize||13;$('dailyBold').checked=!!cell.bold;$('dailyAlign').textContent='정렬: '+({left:'왼쪽',center:'가운데',right:'오른쪽'}[cell.align]||'가운데');$('dailyColWidth').value=dailyTemplate.widths[cell.c];$('dailyRowHeight').value=dailyTemplate.heights[cell.r];
   for(const el of dailySheet.querySelectorAll('td[data-r]')){const r=+el.dataset.r,c=+el.dataset.c,inside=dailyRange&&r>=dailyRange.r1&&r<=dailyRange.r2&&c>=dailyRange.c1&&c<=dailyRange.c2;
    el.classList.toggle('selected',r===cell.r&&c===cell.c);
    el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan));
@@ -1239,8 +1239,8 @@ const PAGE = `<!doctype html>
  function dailyDirtyMark(template){if(template)dailyDirty=true;else dailyDayDirty=true;dailyUnsavedStatus()}
  function dailyUnsavedStatus(){$('dailyStatus').textContent=dailyHasChanges()?'저장 전 변경 사항 있음':'변경 사항 없음';dailySaveButtons()}
  function dailySetText(value){const cell=dailyCell(dailySelected.r,dailySelected.c);if(cell.role&&cell.role!=='shared')return;const key=dailyKey(cell.r,cell.c);
-  const batch=dailyDateValue+'|'+key+'|'+$('dailyTextScope').value;if(dailyTypingKey!==batch){dailyRemember();dailyTypingKey=batch}
-  if($('dailyTextScope').value==='template'){dailyEntry(cell.r,cell.c).text=value;dailyDirtyMark(true)}else{dailyOverrides[key]=value;dailyDirtyMark(false)}dailyPaint()}
+  const scope=dailyEditing?'template':'date';const batch=dailyDateValue+'|'+key+'|'+scope;if(dailyTypingKey!==batch){dailyRemember();dailyTypingKey=batch}
+  if(scope==='template'){dailyEntry(cell.r,cell.c).text=value;dailyDirtyMark(true)}else{dailyOverrides[key]=value;dailyDirtyMark(false)}dailyPaint()}
  function dailySetRole(role){const entry=dailyEntry(dailySelected.r,dailySelected.c);if((entry.role||'')===role)return;dailyRemember();entry.role=role;dailyDirtyMark(true);dailyPaint()}
  function dailyBorderTargets(){
   const selected=new Set();const rows=dailyTemplate.heights.length,cols=dailyTemplate.widths.length;
@@ -1280,7 +1280,7 @@ const PAGE = `<!doctype html>
   dailyRemember();for(const item of updates)dailyEntry(item.r,item.c).borders=item.borders;
   dailyDirtyMark(true);dailyPaint();
  }
- function dailySetStyle(field,value){const targets=dailyStyleTargets();if(targets.every(x=>field==='fontSize'?(x.fontSize||13)===value:!!x.bold===!!value))return;dailyRemember();for(const entry of targets)entry[field]=value;dailyDirtyMark(true);dailyPaint()}
+ function dailySetStyle(field,value){const targets=dailyStyleTargets();if(targets.every(x=>field==='fontSize'?(x.fontSize||13)===value:field==='align'?(x.align||'center')===value:!!x.bold===!!value))return;dailyRemember();for(const entry of targets)entry[field]=value;dailyDirtyMark(true);dailyPaint()}
  function dailyMerge(){if(dailyMarkedCells.size||dailyChosenCols.size||dailyChosenRows.size)return alert('셀 병합은 연속된 영역을 드래그하거나 Shift로 선택하세요.');const b=dailyRange;if(!b)return alert('병합할 셀을 드래그하거나 Shift+방향키로 선택하세요.');const hit=dailyTemplate.cells.filter(x=>x.r<=b.r2&&x.r+x.rs-1>=b.r1&&x.c<=b.c2&&x.c+x.cs-1>=b.c1);
   if(hit.some(x=>x.r<b.r1||x.c<b.c1||x.r+x.rs-1>b.r2||x.c+x.cs-1>b.c2))return alert('기존 병합 셀 전체를 포함해서 선택하세요.');
   const distinct=[...new Set(hit.map(x=>x.role||'').filter(Boolean))];if(distinct.length>1)return alert('서로 다른 데이터 역할의 셀은 병합할 수 없습니다.');
@@ -1394,7 +1394,6 @@ const PAGE = `<!doctype html>
   const opened=td.querySelector('.daily-inline-input');
   if(opened){opened.focus({preventScroll:true});return}
   const scope=dailyEditing?'template':'date';
-  $('dailyTextScope').value=scope;
   const key=dailyKey(cell.r,cell.c);
   const original=scope==='template'?cell.text||'':Object.prototype.hasOwnProperty.call(dailyOverrides,key)?dailyOverrides[key]:cell.text||'';
   const input=document.createElement('input');input.type='text';input.className='daily-inline-input';input.maxLength=140;
@@ -1472,11 +1471,12 @@ const PAGE = `<!doctype html>
  });
  $('dailyPrev').addEventListener('click',()=>dailyDateShift(-1));$('dailyNext').addEventListener('click',()=>dailyDateShift(1));
  $('dailyDate').addEventListener('change',e=>{const target=e.target.value;if(!target)return;if(!dailyCanDiscard()){e.target.value=dailyDateValue;return}dailyDiscardOnDateChange();dailyDateValue=target;dailyLoadDay()});
- $('dailyToggleEdit').addEventListener('click',()=>{dailyEditing=!dailyEditing;$('dailyTextScope').value=dailyEditing?'template':'date';dailyResizeArmed=false;dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailyPaint();dailySheet.focus({preventScroll:true})});
+ $('dailyToggleEdit').addEventListener('click',()=>{dailyEditing=!dailyEditing;dailyResizeArmed=false;dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailyPaint();dailySheet.focus({preventScroll:true})});
  $('dailyPrint').addEventListener('click',dailyPrint);
  $('dailyRole').addEventListener('change',e=>dailySetRole(e.target.value));
  $('dailyFontSize').addEventListener('change',e=>dailySetStyle('fontSize',Math.max(9,Math.min(42,+e.target.value||13))));
  $('dailyBold').addEventListener('change',e=>dailySetStyle('bold',e.target.checked));
+ $('dailyAlign').addEventListener('click',()=>{const cell=dailyCell(dailySelected.r,dailySelected.c),next={left:'center',center:'right',right:'left'}[cell.align||'center']||'left';dailySetStyle('align',next)});
  $('dailyBorderToggle').addEventListener('click',()=>{const panel=$('dailyBorderPanel');panel.hidden=!panel.hidden;$('dailyBorderToggle').setAttribute('aria-expanded',String(!panel.hidden))});
  $('dailyBorderPanel').addEventListener('click',e=>{const btn=e.target.closest('button[data-border-action]');if(!btn)return;dailyApplyBorder(btn.dataset.borderAction);$('dailyBorderPanel').hidden=true;$('dailyBorderToggle').setAttribute('aria-expanded','false')});
  document.addEventListener('pointerdown',e=>{if(!e.target.closest('#dailyBorderPicker')){$('dailyBorderPanel').hidden=true;$('dailyBorderToggle').setAttribute('aria-expanded','false')}});
