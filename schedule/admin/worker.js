@@ -283,7 +283,9 @@ const PAGE = `<!doctype html>
 .daily-input-row{display:flex;align-items:center;gap:5px;flex-wrap:nowrap;overflow:visible;margin:5px 0 8px;min-width:0;width:100%}
 .daily-input-row #dailyContentTools{flex:0 0 auto;margin:0;padding:5px 6px;min-width:0;gap:4px;border:0;background:transparent}
 .daily-input-row #dailyCodeEditor{flex:1 1 auto;margin:0;padding:5px 6px;gap:5px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
-.daily-input-row #dailyEditTools:not([hidden]){flex:1 0 auto}
+.daily-input-row #dailyEditTools:not([hidden]){flex:1 1 auto;min-width:0}
+.daily-input-row #dailyEditTools .daily-edit-tools{flex-wrap:wrap;max-width:100%;box-sizing:border-box;margin:0;padding:6px;gap:5px}
+.daily-input-row #dailyEditTools .daily-edit-tools .btn{padding:7px 9px}
 .daily-input-row .daily-employee-lookup{width:150px;min-width:110px;flex:0 1 150px}.daily-input-row #dailyEmployeeSearch{width:100%;min-width:0;max-width:none}
 .daily-input-row #dailyEmployeeCode{min-width:90px;width:110px;max-width:110px}
 .daily-input-row #dailyCodeEditor small{display:none}
@@ -363,7 +365,7 @@ const PAGE = `<!doctype html>
     <button class="btn" type="button" id="dailyUndo" title="되돌리기 · Windows Ctrl+Z / Mac ⌘+Z" disabled>↶</button><button class="btn" type="button" id="dailyRedo" title="다시 실행 · Windows Ctrl+Y 또는 Ctrl+Shift+Z / Mac ⌘+Shift+Z" disabled>↷</button>
     <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button>
    </div>
-   <div class="daily-mini-status" id="dailyStatus" role="status"></div>
+   <div class="daily-mini-status" id="dailyStatus" role="status" hidden></div>
    <div class="daily-input-row">
    <div id="dailyContentTools" hidden>
     <label>셀 <strong id="dailyContentCoord">A1</strong></label>
@@ -376,7 +378,7 @@ const PAGE = `<!doctype html>
     <div class="daily-edit-tools">
      <button class="btn" type="button" id="dailyAddRow">행 +</button><button class="btn" type="button" id="dailyRemoveRow">행 −</button>
      <button class="btn" type="button" id="dailyAddCol">열 +</button><button class="btn" type="button" id="dailyRemoveCol">열 −</button>
-     <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">병합 해제</button><button class="btn" type="button" id="dailyLeftRemove" title="A~C 근무 행 한 개 줄이기">A~C 행 −</button><button class="btn" type="button" id="dailyLeftAdd" title="A~C 근무 행 한 개 늘리기">A~C 행 +</button><label>왼쪽 행 수 <input id="dailyLeftRows" type="number" min="1" max="21" value="12" style="width:48px" aria-label="A~C열 근무 행 수"></label><button class="btn" type="button" id="dailyFitLeft">A~C 높이 맞춤</button><button class="btn" type="button" id="dailyEqualizeRows" title="선택한 행들의 높이를 균등 배분 (선택한 행 높이 합계 유지)">높이 균등</button>
+     <button class="btn" type="button" id="dailyMerge">병합</button><button class="btn" type="button" id="dailySplit">병합 해제</button><button class="btn" type="button" id="dailyEqualizeRows" title="선택한 행들의 높이를 균등 배분 (선택한 행 높이 합계 유지)">높이 균등</button>
      <label>셀 <strong id="dailyCoord">A1</strong></label>
      <div class="daily-border-picker" id="dailyBorderPicker">
       <button class="btn" type="button" id="dailyBorderToggle" aria-expanded="false" aria-controls="dailyBorderPanel" title="선택한 셀의 테두리 설정">테두리 ▾</button>
@@ -1248,7 +1250,7 @@ const PAGE = `<!doctype html>
  function dailyStyleTargets(){const cells=new Map();for(const x of dailyTemplate.cells){if(dailyMarkedCells.has(dailyKey(x.r,x.c))||dailyRange&&x.r<=dailyRange.r2&&x.r+x.rs-1>=dailyRange.r1&&x.c<=dailyRange.c2&&x.c+x.cs-1>=dailyRange.c1||dailyChosenCols.size&&[...dailyChosenCols].some(c=>c>=x.c&&c<x.c+x.cs)||dailyChosenRows.size&&[...dailyChosenRows].some(r=>r>=x.r&&r<x.r+x.rs))cells.set(dailyKey(x.r,x.c),x)}
   if(!cells.size){const x=dailyEntry(dailySelected.r,dailySelected.c);cells.set(dailyKey(x.r,x.c),x)}return [...cells.values()]}
  function dailyDirtyMark(template){if(template)dailyDirty=true;else dailyDayDirty=true;dailyUnsavedStatus()}
- function dailyUnsavedStatus(){$('dailyStatus').textContent=dailyHasChanges()?'저장 전 변경 사항 있음':'변경 사항 없음';dailySaveButtons()}
+ function dailyUnsavedStatus(){dailySaveButtons()}
  function dailySetText(value){const cell=dailyCell(dailySelected.r,dailySelected.c);if(cell.role&&cell.role!=='shared')return;const key=dailyKey(cell.r,cell.c);
   const scope=dailyEditing?'template':'date';const batch=dailyDateValue+'|'+key+'|'+scope;if(dailyTypingKey!==batch){dailyRemember();dailyTypingKey=batch}
   if(scope==='template'){dailyEntry(cell.r,cell.c).text=value;dailyDirtyMark(true)}else{dailyOverrides[key]=value;dailyDirtyMark(false)}dailyPaint()}
@@ -1307,6 +1309,10 @@ const PAGE = `<!doctype html>
  }
  function dailyChangeDimension(axis,add){const row=axis==='row',sizes=row?dailyTemplate.heights:dailyTemplate.widths,limit=row?70:20,min=row?4:3,pos=row?'r':'c',span=row?'rs':'cs',chosen=row?dailyChosenRows:dailyChosenCols;
   if(dailySaving)return;
+  if(row&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1&&!dailyChosenRows.size){
+   const count=dailyTemplate.cells.filter(x=>x.c===0&&x.role==='code'&&x.r>=2&&x.r<dailyTemplate.heights.length-1).length;
+   dailyFitLeftRows(count+(add?1:-1));return;
+  }
   if(!add&&chosen.size>1)return alert('삭제할 행·열은 하나만 선택하세요.');
   const idx=chosen.size?(add?Math.max(...chosen):[...chosen][0]):dailySelected[row?'r':'c'],at=add?idx+1:idx;
   if(add){if(sizes.length>=limit)return alert('최대 행·열 수입니다.');dailyRemember();sizes.splice(at,0,row?37:100);for(const x of dailyTemplate.cells){if(x[pos]>=at)x[pos]++;else if(x[pos]+x[span]>at)x[span]++}
@@ -1323,7 +1329,7 @@ const PAGE = `<!doctype html>
   if(dailySaving)return;
   const start=2,end=dailyTemplate.heights.length-2,total=end-start+1;
   if(total<1||dailyTemplate.widths.length<3)return alert('A~C 근무 영역을 확인하세요.');
-  const count=requestedCount===null?Math.floor(Number($('dailyLeftRows').value)):requestedCount;
+  const count=requestedCount;
   if(!Number.isInteger(count)||count<1||count>total)return alert('행 수는 1~'+total+' 사이로 입력하세요.');
   const columns=[0,1,2],roles=['code','time','names'];
   // The left section must remain independent of right-hand column spans.
@@ -1347,9 +1353,9 @@ const PAGE = `<!doctype html>
   }
   dailyRemember();
   dailyTemplate.cells=dailyTemplate.cells.filter(x=>!(x.c<3&&x.r<=end&&x.r+x.rs-1>=start)).concat(newCells);
-  dailyTemplate.heights=newHeights;$('dailyLeftRows').value=String(count);
+  dailyTemplate.heights=newHeights;
   dailySelected={r:start,c:0};dailyAnchor={...dailySelected};dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();
-  dailyDirtyMark(true);dailyPaint();$('dailyStatus').textContent='A~C 근무 행 '+count+'개를 기존 전체 높이에 균등 배치했습니다.';
+  dailyDirtyMark(true);dailyPaint();
  }
  function dailyEqualizeRows(){
   if(dailySaving)return;
@@ -1527,9 +1533,7 @@ const PAGE = `<!doctype html>
  $('dailyRowHeight').addEventListener('change',e=>dailyResize('row',dailySelected.r,+e.target.value));
  $('dailyAddRow').addEventListener('click',()=>dailyChangeDimension('row',true));$('dailyRemoveRow').addEventListener('click',()=>dailyChangeDimension('row',false));
  $('dailyAddCol').addEventListener('click',()=>dailyChangeDimension('col',true));$('dailyRemoveCol').addEventListener('click',()=>dailyChangeDimension('col',false));
- $('dailyMerge').addEventListener('click',dailyMerge);$('dailySplit').addEventListener('click',dailySplit);$('dailyEqualizeRows').addEventListener('click',dailyEqualizeRows);$('dailyFitLeft').addEventListener('click',()=>dailyFitLeftRows());
- $('dailyLeftAdd').addEventListener('click',()=>dailyFitLeftRows(dailyTemplate.cells.filter(x=>x.c===0&&x.role==='code'&&x.r>=2&&x.r<dailyTemplate.heights.length-1).length+1));
- $('dailyLeftRemove').addEventListener('click',()=>dailyFitLeftRows(dailyTemplate.cells.filter(x=>x.c===0&&x.role==='code'&&x.r>=2&&x.r<dailyTemplate.heights.length-1).length-1));
+ $('dailyMerge').addEventListener('click',dailyMerge);$('dailySplit').addEventListener('click',dailySplit);$('dailyEqualizeRows').addEventListener('click',dailyEqualizeRows);
  $('dailyUndo').addEventListener('click',dailyUndo);$('dailyRedo').addEventListener('click',dailyRedo);
  $('dailySaveAll').addEventListener('click',dailySaveAll);
  $('dailyEmployeeSearch').addEventListener('input',dailyRefreshEmployeeSuggestions);
