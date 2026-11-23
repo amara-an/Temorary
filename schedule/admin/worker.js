@@ -1504,7 +1504,7 @@ const PAGE = `<!doctype html>
  }
  function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('.col-resize,.row-resize'),rightRowGrip=!!(grip&&grip.classList.contains('row-resize')&&grip.closest('.daily-right')),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
   e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
-  if(grip){const isCol=grip.classList.contains('col-resize'),axis=isCol?'col':rightRowGrip?'right-row':'row',index=rightRowGrip?(+grip.dataset.row===dailyTemplate.heights.length-1?3:+grip.dataset.row):+grip.dataset[isCol?'col':'row'];
+  if(grip){const isCol=grip.classList.contains('col-resize'),axis=isCol?'col':rightRowGrip?'right-row':'row',index=rightRowGrip?(+grip.dataset.row>=2&&+grip.dataset.row<dailyTemplate.heights.length-1?2:+grip.dataset.row===dailyTemplate.heights.length-1?3:+grip.dataset.row):+grip.dataset[isCol?'col':'row'];
    if(e.altKey){dailySelectHeader(axis,index,false,multi)}
    dailyPointer={id:e.pointerId,mode:'resize',axis,index,start:isCol?e.clientX:e.clientY,size:isCol?dailyTemplate.widths[index]:rightRowGrip?dailyTemplate.rightHeights[index]:dailyTemplate.heights[index]};
   }else if(headCol||headRow){const axis=headCol?'col':'row',index=+(headCol||headRow).dataset[axis];dailySelectHeader(axis,index,e.shiftKey,multi);dailyPointer={id:e.pointerId,mode:'header',axis,locked:multi}}
@@ -1516,7 +1516,7 @@ const PAGE = `<!doctype html>
  }
  function dailyPointerMove(e){if(!dailyPointer||dailyPointer.id!==e.pointerId)return;e.preventDefault();const p=dailyPointer;
   if(p.mode==='resize'){
-   const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:170,Math.round(p.size+offset)));
+   const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:p.axis==='right-row'?1100:170,Math.round(p.size+offset)));
    if(p.axis==='right-row'){const tr=dailySheet.querySelector('.daily-right tbody tr:nth-child('+(p.index+1)+')');if(tr)tr.style.height=newSize+'px'}else if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-2)+')');if(col)col.style.width=newSize+'px'}}
    else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('.daily-left tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
    return;
