@@ -150,3 +150,15 @@
 - 직원 현재 코드 머리말: **v4.6.2** — 마지막 주요 수정 ‘마감과 독립된 신청자 명단 표시’. 자동 배포 연결 완료.
 - GitHub README와 일부 실험용 문서는 오래된 배포 명령 `wrangler versions upload`를 포함할 수 있으므로 **위 2절의 실제 운영 배포 명령 `wrangler deploy`를 최신 기준으로 삼을 것**.
 - GitHub 작업 경로: https://github.com/amara-an/Temorary/tree/main/schedule
+
+## 개발·배포·실사용 검증의 역할 분담 (2026-11-23 확정)
+
+이 프로젝트는 **GitHub 커밋 → Cloudflare Workers Builds 자동 배포 → 사용자가 실제 화면에서 시험 → 피드백을 받아 다시 수정**하는 반복 개발 방식이다. 새 대화에서 이 절차를 다시 추측하거나 배포 방식을 재설계하지 말 것.
+
+1. **ChatGPT**: GitHub `amara-an/Temorary`의 최신 소스를 읽고 변경한 뒤 `main`에 직접 커밋한다. 사용자가 코드를 복사하거나 수동으로 배포할 필요는 없다.
+2. **Cloudflare**: GitHub와 직접 연결된 Workers Builds가 변경 감시 경로에 맞는 커밋을 감지해 빌드·배포한다. 관리자 `testform`은 `schedule/admin/*`, 직원용 `staff-test`는 `schedule/employee/*`를 감시한다. 배포 명령은 각각 `npx wrangler deploy --config schedule/admin/wrangler.jsonc`, `npx wrangler deploy --config schedule/employee/wrangler.jsonc`이다. 별도의 GitHub Actions 배포 워크플로를 전제로 하지 않는다.
+3. **ChatGPT**: 가능하면 **해당 커밋의 Cloudflare 빌드 기록**을 찾아 `진행 중 / completed·success / 실패`를 확인하고 보고한다. GitHub 커밋 성공, GitHub 일반 상태 검사, Cloudflare 빌드 성공은 서로 다른 증거다. 빌드 기록을 조회할 도구가 없으면 **배포 미확인**으로 정확히 표시하고 성공을 추정하지 않는다. 과거에는 GitHub와 연결된 Cloudflare 빌드 기록을 열어 상태를 확인한 사례가 있다.
+4. **사용자**: 자동 배포 뒤 실제 관리자/직원 웹 화면에서 기능을 직접 구동·시험하고, 오류나 수정 요청을 알려준다. **ChatGPT가 매번 실제 서비스에 로그인해 UI 기능까지 검증하는 구조가 아니다.**
+5. **ChatGPT**: 사용자 피드백을 바탕으로 다시 소스를 수정·커밋하고 같은 순서를 반복한다.
+
+**상태 보고 원칙**: `코드 커밋 완료` / `Cloudflare 빌드 시작` / `Cloudflare 배포 성공` / `사용자 실사용 확인`을 구별한다. 배포 성공은 기능별 실사용 성공을 의미하지 않는다. 기존 GitHub↔Cloudflare 자동 연결이 작동한다는 점은 과거 관리자 테스트 커밋 `1785236`(빌드 최종 `completed / success` 보고), 직원용 테스트 커밋 `c1744a2`(빌드 시작 보고)에서 확인되었다. 다만 각 **새 커밋의** 배포 성공은 별도로 확인한다.
