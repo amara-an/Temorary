@@ -326,7 +326,6 @@ const PAGE = `<!doctype html>
       <label class="deadline">휴무 마감일 <input type="date" id="deadline"></label>
       <label class="deadline">신청 제한 인원 <input type="number" id="leaveCapacity" min="0" max="999" step="1" placeholder="미설정" title="선택한 월의 날짜별 최대 휴무 인원"></label>
       <button class="btn push" id="exportExcel" type="button">엑셀 내보내기</button>
-      <button class="btn" id="exportDailyMonth" type="button">일일표 월 전체 엑셀</button>
       <button class="btn primary" id="publishSchedule" type="button">배포하기</button>
     </div>
     <div class="notice" id="scheduleDbStatus" role="status">D1 근무표 데이터 불러오는 중… 실제 직원 개인정보는 넣지 마세요.</div>
@@ -1079,24 +1078,15 @@ const PAGE = `<!doctype html>
    }catch(error){scheduleStatus('배포 실패: '+error.message,true);alert('배포 실패: '+error.message)}
    finally{button.disabled=false}
  });
- $('exportExcel').addEventListener('click',()=>{
+ $('exportExcel').addEventListener('click',async()=>{
    if(!scheduleReady||scheduleBusy){alert('D1 근무표를 불러온 후 내보내세요.');return}
-   const m=monthKey();
-   const link=document.createElement('a');
-   link.href='/api/export/month.xlsx?month='+encodeURIComponent(m);
-   link.download='roster_'+m+'.xlsx';
-   document.body.appendChild(link);link.click();link.remove();
- });
-
- $('exportDailyMonth').addEventListener('click',async()=>{
-   if(!scheduleReady||scheduleBusy){alert('D1 근무표를 불러온 후 내보내세요.');return}
-   const btn=$('exportDailyMonth'),month=monthKey();btn.disabled=true;btn.textContent='생성 중…';
+   const btn=$('exportExcel'),month=monthKey();btn.disabled=true;btn.textContent='생성 중…';
    try{
-     const res=await fetch('/api/export/daily-month.xlsx?month='+encodeURIComponent(month),{credentials:'same-origin',cache:'no-store'});
-     if(!res.ok){let msg='일일표 내보내기에 실패했습니다.';try{msg=(await res.json()).error||msg}catch(_){}throw Error(msg)}
-     const url=URL.createObjectURL(await res.blob()),a=document.createElement('a');
-     a.href=url;a.download='daily_'+month+'.xlsx';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
-   }catch(e){alert(e.message)}finally{btn.disabled=false;btn.textContent='일일표 월 전체 엑셀'}
+     const res=await fetch('/api/export/complete.xlsx?month='+encodeURIComponent(month),{credentials:'same-origin',cache:'no-store'});
+     if(!res.ok){let msg='엑셀 내보내기에 실패했습니다.';try{msg=(await res.json()).error||msg}catch(_){}throw Error(msg)}
+     const url=URL.createObjectURL(await res.blob()),link=document.createElement('a');
+     link.href=url;link.download='schedule_'+month+'.xlsx';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+   }catch(e){alert(e.message)}finally{btn.disabled=false;btn.textContent='엑셀 내보내기'}
  });
  $('navPeople').addEventListener('click',()=>switchView('people'));
  $('peopleBackRoster').addEventListener('click',()=>switchView('roster'));
@@ -1679,6 +1669,15 @@ async function employeeApi(request,env,url){
       'Content-Disposition':'attachment; filename="roster_'+month+'.xlsx"',
       'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'
     }});
+  }
+  if(path==='/api/export/complete.xlsx'&&method==='GET'){
+    const month=url.searchParams.get('month');
+    if(!validMonth(month))return json({ok:false,error:'잘못된 월입니다.'},400);
+    try{
+      const [data,daily]=await Promise.all([monthDataForExport(db,month),makeDailyMonthXlsx(db,month)]);
+      const bytes=combineScheduleXlsx(makeExcelXlsx(data),daily);
+      return new Response(bytes,{headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':'attachment; filename="schedule_'+month+'.xlsx"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+    }catch(e){console.error('Combined XLSX export',e);return json({ok:false,error:e.message||'통합 근무표 생성 실패'},500)}
   }
   if(path==='/api/export/daily-month.xlsx'&&method==='GET'){
     const month=url.searchParams.get('month');
@@ -2320,6 +2319,44 @@ async function makeDailyMonthXlsx(db,month){
   const types='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+Array.from({length:count},(_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+1)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>';
   const rootRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
   return zipExcelStore([['[Content_Types].xml',types],['_rels/.rels',rootRels],['xl/workbook.xml',workbook],['xl/_rels/workbook.xml.rels',rels],['xl/styles.xml',stylesXml],...files]);
+}
+
+// Combine existing monthly and daily XLSX sheets while retaining each sheet's own styles.
+function combineScheduleXlsx(monthBytes,dailyBytes){
+  function entries(bytes){
+    const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),dec=new TextDecoder(),out=new Map();
+    let p=0;
+    while(p+30<=bytes.length&&view.getUint32(p,true)===0x04034b50){
+      if(view.getUint16(p+8,true)!==0)throw new Error('지원하지 않는 XLSX 압축 형식');
+      const len=view.getUint32(p+18,true),nameLen=view.getUint16(p+26,true),extra=view.getUint16(p+28,true);
+      const name=dec.decode(bytes.subarray(p+30,p+30+nameLen)),start=p+30+nameLen+extra;
+      out.set(name,dec.decode(bytes.subarray(start,start+len)));p=start+len;
+    }
+    return out;
+  }
+  const m=entries(monthBytes),d=entries(dailyBytes);
+  const get=(map,key)=>{const v=map.get(key);if(!v)throw new Error('XLSX 구성 요소 누락: '+key);return v};
+  const ms=get(m,'xl/styles.xml'),ds=get(d,'xl/styles.xml');
+  const section=(xml,name)=>{const match=xml.match(new RegExp('<'+name+'\\b[^>]*>([\\s\\S]*?)<\\/'+name+'>'));return match?match[1]:''};
+  const nodes=(xml,name)=>xml.match(new RegExp('<'+name+'(?:\\s[^>]*)?(?:\\/>|>[\\s\\S]*?<\\/'+name+'>)','g'))||[];
+  const mf=nodes(section(ms,'fonts'),'font'),df=nodes(section(ds,'fonts'),'font');
+  const mfill=nodes(section(ms,'fills'),'fill'),dfill=nodes(section(ds,'fills'),'fill');
+  const mb=nodes(section(ms,'borders'),'border'),db=nodes(section(ds,'borders'),'border');
+  const mx=nodes(section(ms,'cellXfs'),'xf'),dx=nodes(section(ds,'cellXfs'),'xf');
+  const offset=mx.length;
+  const shifted=dx.map(x=>x.replace(/fontId="(\d+)"/g,(_,n)=>'fontId="'+(+n+mf.length)+'"').replace(/fillId="(\d+)"/g,(_,n)=>'fillId="'+(+n+mfill.length)+'"').replace(/borderId="(\d+)"/g,(_,n)=>'borderId="'+(+n+mb.length)+'"'));
+  const mergedStyles=ms.replace(/<fonts\b[^>]*>[\s\S]*?<\/fonts>/,'<fonts count="'+(mf.length+df.length)+'">'+mf.join('')+df.join('')+'</fonts>')
+    .replace(/<fills\b[^>]*>[\s\S]*?<\/fills>/,'<fills count="'+(mfill.length+dfill.length)+'">'+mfill.join('')+dfill.join('')+'</fills>')
+    .replace(/<borders\b[^>]*>[\s\S]*?<\/borders>/,'<borders count="'+(mb.length+db.length)+'">'+mb.join('')+db.join('')+'</borders>')
+    .replace(/<cellXfs\b[^>]*>[\s\S]*?<\/cellXfs>/,'<cellXfs count="'+(mx.length+dx.length)+'">'+mx.join('')+shifted.join('')+'</cellXfs>');
+  const dayFiles=[...d.entries()].filter(([name])=>/^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort((a,b)=>Number(a[0].match(/\d+/)[0])-Number(b[0].match(/\d+/)[0]));
+  const dailySheets=dayFiles.map(([name,xml],i)=>['xl/worksheets/sheet'+(i+2)+'.xml',xml.replace(/<c\b([^>]*?)\bs="(\d+)"/g,(_,before,n)=>'<c'+before+'s="'+(+n+offset)+'"')]);
+  const count=dailySheets.length;
+  const workbook=get(m,'xl/workbook.xml').replace('</sheets>',Array.from({length:count},(_,i)=>'<sheet name="'+String(i+1).padStart(2,'0')+'일" sheetId="'+(i+2)+'" r:id="rId'+(i+2)+'"/>').join('')+'</sheets>');
+  const rels=get(m,'xl/_rels/workbook.xml.rels').replace('</Relationships>',Array.from({length:count},(_,i)=>'<Relationship Id="rId'+(i+3)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet'+(i+2)+'.xml"/>').join('')+'</Relationships>')
+    .replace('Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"','Id="rId'+(count+3)+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles"');
+  const types=get(m,'[Content_Types].xml').replace('</Types>',Array.from({length:count},(_,i)=>'<Override PartName="/xl/worksheets/sheet'+(i+2)+'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>').join('')+'</Types>');
+  return zipExcelStore([['[Content_Types].xml',types],['_rels/.rels',get(m,'_rels/.rels')],['xl/workbook.xml',workbook],['xl/_rels/workbook.xml.rels',rels],['xl/styles.xml',mergedStyles],['xl/worksheets/sheet1.xml',get(m,'xl/worksheets/sheet1.xml')],...dailySheets]);
 }
 
 function zipExcelStore(files){
