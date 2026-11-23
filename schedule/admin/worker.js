@@ -1191,7 +1191,7 @@ const PAGE = `<!doctype html>
  function dailyTableHtml(edit,side="all"){const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups(),first=side==="right"?3:0,last=side==="left"?3:w.length;let out='<colgroup>'+(edit&&side!=='right'?'<col style="width:37px">':'');for(let c=first;c<last;c++)out+='<col style="width:'+w[c]+'px">';out+='</colgroup>';
   if(edit){out+='<thead><tr>'+(side!=='right'?'<th class="row-num"></th>':'');for(let c=first;c<last;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
   out+='<tbody>';const occupied=new Set();const rows=side==='right'?[0,1,2,h.length-1]:Array.from({length:h.length},(_,i)=>i);for(const r of rows){
-   out+='<tr style="height:'+(side==='right'?(r===0?h[0]:r===1?h[1]:r===2?h.slice(2,-1).reduce((a,b)=>a+b,0):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
+   out+='<tr style="height:'+(side==='right'?(r===0?t.rightHeights[0]:r===1?t.rightHeights[1]:r===2?t.rightHeights[2]:t.rightHeights[3]):h[r]):h[r])+'px">';if(edit&&side!=='right')out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
    for(let c=first;c<last;c++){if(side==='right'&&r===h.length-1){if(c===first)out+='<td colspan="'+(last-first)+'" class="daily-right-blank"></td>';continue}if(occupied.has(dailyKey(r,c)))continue;const cell=dailyCell(r,c);if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}if(side==='left'&&cell.c+cell.cs>last){continue}
     for(let rr=r;rr<r+cell.rs;rr++)for(let cc=c;cc<c+cell.cs;cc++)if(rr!==r||cc!==c)occupied.add(dailyKey(rr,cc));
     const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
@@ -1206,7 +1206,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailySheet.innerHTML='<table class="daily-grid daily-left'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing,'left')+'</table><table class="daily-grid daily-right'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing,'right')+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid daily-left'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing,'left')+'</table><table class="daily-grid daily-right'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing,'right')+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
@@ -1404,8 +1404,8 @@ const PAGE = `<!doctype html>
   dailyPaint();
  }
  function dailyResizeTargets(axis,index){const picked=axis==='col'?dailyChosenCols:dailyChosenRows;return picked.has(index)?[...picked].sort((a,b)=>a-b):[index]}
- function dailyResize(axis,index,newSize){const sizes=axis==='col'?dailyTemplate.widths:dailyTemplate.heights,min=axis==='col'?42:25,max=axis==='col'?650:170;const n=Math.max(min,Math.min(max,Math.round(newSize)));if(!Number.isFinite(n))return;const targets=dailyResizeTargets(axis,index);if(targets.every(i=>sizes[i]===n))return;dailyRemember();for(const i of targets)sizes[i]=n;dailyDirtyMark(true);dailyPaint()}
- function dailyMigrateTemplate(t){if(!t||!Array.isArray(t.cells))return freshDailyTemplate();if(!t.cells.some(x=>x.role)&&t.widths.length===6&&t.cells.some(x=>x.r===1&&x.c===2&&x.text==='근무자 명단')){
+ function dailyResize(axis,index,newSize){const sizes=axis==='col'?dailyTemplate.widths:axis==='right-row'?dailyTemplate.rightHeights:dailyTemplate.heights,min=axis==='col'?42:25,max=axis==='col'?650:axis==='right-row'?1100:170;const n=Math.max(min,Math.min(max,Math.round(newSize)));if(!Number.isFinite(n))return;const targets=axis==='right-row'?[index]:dailyResizeTargets(axis,index);if(targets.every(i=>sizes[i]===n))return;dailyRemember();for(const i of targets)sizes[i]=n;dailyDirtyMark(true);dailyPaint()}
+ function dailyMigrateTemplate(t){if(!t||!Array.isArray(t.cells))t=freshDailyTemplate();if(!Array.isArray(t.rightHeights))t.rightHeights=[t.heights[0],t.heights[1],t.heights.slice(2,-1).reduce((a,b)=>a+b,0),t.heights.at(-1)];if(!t.cells.some(x=>x.role)&&t.widths.length===6&&t.cells.some(x=>x.r===1&&x.c===2&&x.text==='근무자 명단')){
    const mark=(r,c,role)=>{const e=t.cells.find(x=>r>=x.r&&r<x.r+x.rs&&c>=x.c&&c<x.c+x.cs);if(e){if(e.r===r&&e.c===c&&(!e.text||role==='date'))e.role=role}else t.cells.push({r:r,c:c,rs:1,cs:1,text:'',role:role})};
    mark(0,3,'date');mark(2,3,'leave');mark(2,4,'annual');mark(2,5,'shared');for(let r=2;r<Math.min(23,t.heights.length-1);r++)for(let c=0;c<3;c++)mark(r,c,['code','time','names'][c]);
   }return t}
@@ -1447,7 +1447,7 @@ const PAGE = `<!doctype html>
   finally{dailySaving=false;$('dailyTemplateView').classList.remove('saving');dailyUndoButtons()}
  }
  function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
-  const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1,748/w,1077/h);
+  const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=Math.max(dailyTemplate.heights.reduce((a,b)=>a+b,0),dailyTemplate.rightHeights.reduce((a,b)=>a+b,0)),scale=Math.min(1,748/w,1077/h);
   document.documentElement.style.setProperty('--daily-print-scale',String(Math.max(0.2,scale)));
   $('dailyPrintOnly').innerHTML='<div class="daily-a4-frame"><div class="daily-split" style="zoom:'+Math.max(0.2,scale)+'"><table class="daily-grid daily-left">'+dailyTableHtml(false,'left')+'</table><table class="daily-grid daily-right">'+dailyTableHtml(false,'right')+'</table></div></div>';
   window.print();
@@ -1490,11 +1490,11 @@ const PAGE = `<!doctype html>
   if((e.key==='F2'||e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailyBeginInlineEdit(e.key==='F2'?null:e.key)}
   if((e.key==='Backspace'||e.key==='Delete')&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailySetText('')}
  }
- function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('.col-resize,.row-resize'),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
+ function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('.col-resize,.row-resize'),rightRowGrip=!!(grip&&grip.classList.contains('row-resize')&&grip.closest('.daily-right')),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
   e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
-  if(grip){const isCol=grip.classList.contains('col-resize'),axis=isCol?'col':'row',index=+grip.dataset[axis==='col'?'col':'row'];
+  if(grip){const isCol=grip.classList.contains('col-resize'),axis=isCol?'col':rightRowGrip?'right-row':'row',index=rightRowGrip?(+grip.dataset.row===dailyTemplate.heights.length-1?3:+grip.dataset.row):+grip.dataset[isCol?'col':'row'];
    if(e.altKey){dailySelectHeader(axis,index,false,multi)}
-   dailyPointer={id:e.pointerId,mode:'resize',axis,index,start:isCol?e.clientX:e.clientY,size:isCol?dailyTemplate.widths[index]:dailyTemplate.heights[index]};
+   dailyPointer={id:e.pointerId,mode:'resize',axis,index,start:isCol?e.clientX:e.clientY,size:isCol?dailyTemplate.widths[index]:rightRowGrip?dailyTemplate.rightHeights[index]:dailyTemplate.heights[index]};
   }else if(headCol||headRow){const axis=headCol?'col':'row',index=+(headCol||headRow).dataset[axis];dailySelectHeader(axis,index,e.shiftKey,multi);dailyPointer={id:e.pointerId,mode:'header',axis,locked:multi}}
   else{const r=+td.dataset.r,c=+td.dataset.c;
    if(e.altKey){const axis=e.shiftKey?'row':'col',index=axis==='col'?c:r;dailySelectHeader(axis,index,false,multi);dailyPointer={id:e.pointerId,mode:'header',axis,locked:multi}}
@@ -1505,7 +1505,7 @@ const PAGE = `<!doctype html>
  function dailyPointerMove(e){if(!dailyPointer||dailyPointer.id!==e.pointerId)return;e.preventDefault();const p=dailyPointer;
   if(p.mode==='resize'){
    const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:170,Math.round(p.size+offset)));
-   if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-2)+')');if(col)col.style.width=newSize+'px'}}
+   if(p.axis==='right-row'){const tr=dailySheet.querySelector('.daily-right tbody tr:nth-child('+(p.index+1)+')');if(tr)tr.style.height=newSize+'px'}else if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-2)+')');if(col)col.style.width=newSize+'px'}}
    else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('.daily-left tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
    return;
   }
