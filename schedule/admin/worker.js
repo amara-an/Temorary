@@ -1416,7 +1416,13 @@ const PAGE = `<!doctype html>
   dailyPaint();
  }
  function dailyResizeTargets(axis,index){const picked=axis==='col'?dailyChosenCols:dailyChosenRows;return picked.has(index)?[...picked].sort((a,b)=>a-b):[index]}
- function dailyResize(axis,index,newSize){const sizes=axis==='col'?dailyTemplate.widths:axis==='right-row'?dailyTemplate.rightHeights:dailyTemplate.heights,min=axis==='col'?42:25,max=axis==='col'?650:axis==='right-row'?1100:170;const n=Math.max(min,Math.min(max,Math.round(newSize)));if(!Number.isFinite(n))return;const targets=axis==='right-row'?[index]:dailyResizeTargets(axis,index);if(targets.every(i=>sizes[i]===n))return;dailyRemember();for(const i of targets)sizes[i]=n;dailyDirtyMark(true);dailyPaint()}
+ function dailyResize(axis,index,newSize){
+  const sizes=axis==='col'?dailyTemplate.widths:dailyTemplate.heights,min=axis==='col'?42:12,max=axis==='col'?650:1100;
+  const n=Math.max(min,Math.min(max,Math.round(newSize)));if(!Number.isFinite(n))return;
+  const targets=dailyResizeTargets(axis,index);
+  if(targets.every(i=>sizes[i]===n))return;
+  dailyRemember();for(const i of targets)sizes[i]=n;dailyDirtyMark(true);dailyPaint();
+}
  function dailyMigrateTemplate(t){if(!t||!Array.isArray(t.cells))t=freshDailyTemplate();if(!Array.isArray(t.rightHeights))t.rightHeights=[t.heights[0],t.heights[1],t.heights.slice(2,-1).reduce((a,b)=>a+b,0),t.heights.at(-1)];if(!t.cells.some(x=>x.role)&&t.widths.length===6&&t.cells.some(x=>x.r===1&&x.c===2&&x.text==='근무자 명단')){
    const mark=(r,c,role)=>{const e=t.cells.find(x=>r>=x.r&&r<x.r+x.rs&&c>=x.c&&c<x.c+x.cs);if(e){if(e.r===r&&e.c===c&&(!e.text||role==='date'))e.role=role}else t.cells.push({r:r,c:c,rs:1,cs:1,text:'',role:role})};
    mark(0,3,'date');mark(2,3,'leave');mark(2,4,'annual');mark(2,5,'shared');for(let r=2;r<Math.min(23,t.heights.length-1);r++)for(let c=0;c<3;c++)mark(r,c,['code','time','names'][c]);
@@ -1516,9 +1522,9 @@ const PAGE = `<!doctype html>
  }
  function dailyPointerMove(e){if(!dailyPointer||dailyPointer.id!==e.pointerId)return;e.preventDefault();const p=dailyPointer;
   if(p.mode==='resize'){
-   const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:p.axis==='right-row'?1100:170,Math.round(p.size+offset)));
-   if(p.axis==='right-row'){const tr=dailySheet.querySelector('.daily-right tbody tr:nth-child('+(p.index+1)+')');if(tr)tr.style.height=newSize+'px'}else if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector((i<3?'.daily-left ':'.daily-right ')+'colgroup col:nth-child('+(i<3?i+2:i-2)+')');if(col)col.style.width=newSize+'px'}}
-   else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('.daily-left tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
+   const offset=(p.axis==='col'?e.clientX:e.clientY)-p.start,newSize=Math.max(p.axis==='col'?42:25,Math.min(p.axis==='col'?650:1100,Math.round(p.size+offset)));
+   if(p.axis==='right-row'){const tr=dailySheet.querySelector('.daily-right tbody tr:nth-child('+(p.index+1)+')');if(tr)tr.style.height=newSize+'px'}else if(p.axis==='col'){for(const i of dailyResizeTargets('col',p.index)){const col=dailySheet.querySelector('colgroup col:nth-child('+(i+2)+')');if(col)col.style.width=newSize+'px'}}
+   else{for(const i of dailyResizeTargets('row',p.index)){const tr=dailySheet.querySelector('tbody tr:nth-child('+(i+1)+')');if(tr)tr.style.height=newSize+'px'}}
    return;
   }
   if(p.locked)return;const hit=document.elementFromPoint(e.clientX,e.clientY);
