@@ -240,7 +240,7 @@ const PAGE = `<!doctype html>
 #dailyTemplateView:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 32px);min-height:0;min-width:0;overflow:hidden}
 .daily-sheet-wrap{width:100%;flex:1 1 auto;overflow:auto;height:auto;max-height:none;min-height:0;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
 .daily-sheet-wrap.editing{height:auto;max-height:none;min-height:0;touch-action:pan-x pan-y}
-.daily-a4-frame{box-sizing:border-box;width:794px;min-height:1123px;padding:23px;background:#fff;border:1px solid #9aabbc;box-shadow:0 3px 12px #0002;position:relative;overflow:visible}
+.daily-a4-frame{box-sizing:border-box;width:794px;min-height:1123px;padding:23px;background:#fff;border:1px solid #9aabbc;box-shadow:0 3px 12px #0002;position:relative;overflow:hidden}
 .daily-split{display:block;width:max-content;background:#fff}.daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .daily-grid td{font-size:13px}
@@ -1160,7 +1160,7 @@ const PAGE = `<!doctype html>
    {r:23,c:0,rs:1,cs:6,text:''}
   ];
   for(let r=2;r<23;r++)for(let c=0;c<3;c++)cells.push({r:r,c:c,rs:1,cs:1,text:'',role:['code','time','names'][c]});
-  return {widths:[73,127,350,90,90,90],heights:Array.from({length:24},(_,i)=>i===0?56:i===1?41:i===23?48:37),cells:cells};
+  return {widths:[60,105,295,83,83,83],heights:Array.from({length:24},(_,i)=>i===0?56:i===1?41:i===23?48:37),cells:cells};
  };
  let dailyTemplate=freshDailyTemplate(),dailySelected={r:0,c:0},dailyAnchor={r:0,c:0},dailyRange=null;
  let dailyMarkedCells=new Set(),dailyChosenCols=new Set(),dailyChosenRows=new Set(),dailyColAnchor=0,dailyRowAnchor=0;
@@ -1216,7 +1216,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
@@ -1435,8 +1435,19 @@ const PAGE = `<!doctype html>
  function dailyMigrateTemplate(t){if(!t||!Array.isArray(t.cells))t=freshDailyTemplate();if(!Array.isArray(t.rightHeights))t.rightHeights=[t.heights[0],t.heights[1],t.heights.slice(2,-1).reduce((a,b)=>a+b,0),t.heights.at(-1)];if(!t.cells.some(x=>x.role)&&t.widths.length===6&&t.cells.some(x=>x.r===1&&x.c===2&&x.text==='근무자 명단')){
    const mark=(r,c,role)=>{const e=t.cells.find(x=>r>=x.r&&r<x.r+x.rs&&c>=x.c&&c<x.c+x.cs);if(e){if(e.r===r&&e.c===c&&(!e.text||role==='date'))e.role=role}else t.cells.push({r:r,c:c,rs:1,cs:1,text:'',role:role})};
    mark(0,3,'date');mark(2,3,'leave');mark(2,4,'annual');mark(2,5,'shared');for(let r=2;r<Math.min(23,t.heights.length-1);r++)for(let c=0;c<3;c++)mark(r,c,['code','time','names'][c]);
-  }return t}
- async function dailyLoad(){if(dailyLoading||dailyLoaded)return;dailyLoading=true;$('dailyStatus').textContent='양식 불러오는 중…';try{const res=await fetch('/api/daily-template',{credentials:'same-origin'}),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'양식 읽기 실패');const legacy=!!(body.template&&!body.template.cells.some(x=>x.role));dailyTemplate=dailyMigrateTemplate(body.template);dailyLoaded=true;dailyDirty=legacy;dailyHistoryClear();$('dailyStatus').textContent=legacy?'기존 양식을 변환했습니다 · 공통 양식을 저장하세요':'';dailyPaint()}catch(e){$('dailyStatus').textContent=e.message}finally{dailyLoading=false}}
+  }dailyFitA4Widths(t);return t}
+ function dailyFitA4Widths(t){
+  // 748px printable width less 37px editor row-number gutter.
+  const limit=711,old=t.widths;
+  if(!Array.isArray(old)||old.length!==6)return false;
+  const total=old.reduce((a,b)=>a+Number(b||0),0);
+  if(total<=limit)return false;
+  const minimum=[42,65,180,55,55,55];
+  let widths=old.map((v,i)=>Math.max(minimum[i],Math.floor(v*limit/total)));
+  while(widths.reduce((a,b)=>a+b,0)>limit){let idx=widths.reduce((best,v,i)=>v-minimum[i]>widths[best]-minimum[best]?i:best,0);if(widths[idx]<=minimum[idx])break;widths[idx]--}
+  t.widths=widths;return true;
+ }
+ async function dailyLoad(){if(dailyLoading||dailyLoaded)return;dailyLoading=true;$('dailyStatus').textContent='양식 불러오는 중…';try{const res=await fetch('/api/daily-template',{credentials:'same-origin'}),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'양식 읽기 실패');const legacy=!!(body.template&&!body.template.cells.some(x=>x.role));dailyTemplate=dailyMigrateTemplate(body.template);dailyLoaded=true;dailyDirty=legacy||!!(body.template&&body.template.widths&&body.template.widths.reduce((a,b)=>a+b,0)>711);dailyHistoryClear();$('dailyStatus').textContent=legacy?'기존 양식을 변환했습니다 · 공통 양식을 저장하세요':'';dailyPaint()}catch(e){$('dailyStatus').textContent=e.message}finally{dailyLoading=false}}
  async function dailyLoadDay(){const seq=++dailyFetchSeq;const date=dailyDateValue;$('dailyStatus').textContent='일간 근무표 불러오는 중…';try{const res=await fetch('/api/daily-day?date='+encodeURIComponent(date),{credentials:'same-origin'}),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'일간 근무표 읽기 실패');if(seq!==dailyFetchSeq)return;dailyDay=body;dailyOverrides=body.overrides||{};dailyOriginalCodes=Object.fromEntries((body.shifts||[]).map(x=>[x.employee_id,x.code||'']));dailyPendingCodes={};dailyDayDirty=false;dailyHistoryClear();$('dailyStatus').textContent='';dailyPaint()}catch(e){if(seq===dailyFetchSeq)$('dailyStatus').textContent=e.message}}
  function dailyPeopleOptions(){if(dailyEditing)return;const sel=$('dailyEmployeeSelect'),old=sel.value;sel.innerHTML='<option value="">직원 선택</option>'+dailyDay.people.map(p=>'<option value="'+text(p.id)+'">'+text(p.name)+'</option>').join('');if(dailyDay.people.some(p=>p.id===old)){sel.value=old;$('dailyEmployeeSearch').value=dailyDay.people.find(p=>p.id===old).name}else if(old){sel.value='';$('dailyEmployeeSearch').value=''}dailyCodeOptions()}
  function dailyCloseEmployeeSuggestions(){const list=$('dailyEmployeeSuggestions');list.hidden=true;list.innerHTML='';$('dailyEmployeeSearch').setAttribute('aria-expanded','false')}
@@ -1474,7 +1485,7 @@ const PAGE = `<!doctype html>
   finally{dailySaving=false;$('dailyTemplateView').classList.remove('saving');dailyUndoButtons()}
  }
  function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
-  const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1,748/w,1077/h);
+  dailyFitA4Widths(dailyTemplate);const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1,748/w,1077/h);
   document.documentElement.style.setProperty('--daily-print-scale',String(Math.max(0.2,scale)));
   $('dailyPrintOnly').innerHTML='<div class="daily-a4-frame"><div style="zoom:'+Math.max(0.2,scale)+'"><table class="daily-grid">'+dailyTableHtml(false)+'</table></div></div>';
   window.print();
