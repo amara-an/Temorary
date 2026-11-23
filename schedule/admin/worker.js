@@ -1285,7 +1285,7 @@ const PAGE = `<!doctype html>
   if(hit.some(x=>x.r<b.r1||x.c<b.c1||x.r+x.rs-1>b.r2||x.c+x.cs-1>b.c2))return alert('기존 병합 셀 전체를 포함해서 선택하세요.');
   const distinct=[...new Set(hit.map(x=>x.role||'').filter(Boolean))];if(distinct.length>1)return alert('서로 다른 데이터 역할의 셀은 병합할 수 없습니다.');
   const src=hit.find(x=>x.r===b.r1&&x.c===b.c1)||{},contents=hit.map(x=>x.text).filter(Boolean);
-  dailyRemember();dailyTemplate.cells=dailyTemplate.cells.filter(x=>!hit.includes(x));dailyTemplate.cells.push({r:b.r1,c:b.c1,rs:b.r2-b.r1+1,cs:b.c2-b.c1+1,text:contents.join(' '),role:distinct[0]||'',fontSize:src.fontSize||13,bold:!!src.bold,...(src.borders?{borders:{...src.borders}}:{})});
+  dailyRemember();dailyTemplate.cells=dailyTemplate.cells.filter(x=>!hit.includes(x));dailyTemplate.cells.push({r:b.r1,c:b.c1,rs:b.r2-b.r1+1,cs:b.c2-b.c1+1,text:contents.join(' '),role:distinct[0]||'',fontSize:src.fontSize||13,bold:!!src.bold,align:src.align||'center',...(src.borders?{borders:{...src.borders}}:{})});
   dailySelected={r:b.r1,c:b.c1};dailyAnchor={...dailySelected};dailyRange=null;dailyDirtyMark(true);dailyPaint();
  }
  function dailySplit(){const cell=dailyCell(dailySelected.r,dailySelected.c);if(cell.rs===1&&cell.cs===1)return;dailyRemember();const entry=dailyEntry(cell.r,cell.c);entry.rs=1;entry.cs=1;dailyRange=null;dailyDirtyMark(true);dailyPaint()}
@@ -1736,7 +1736,7 @@ async function employeeApi(request,env,url){
       if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=25&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
       const occupied=new Set();
       for(const cell of t.cells){
-        if(!cell||![cell.r,cell.c,cell.rs,cell.cs].every(Number.isInteger)||cell.r<0||cell.c<0||cell.rs<1||cell.cs<1||cell.r+cell.rs>t.heights.length||cell.c+cell.cs>t.widths.length||typeof cell.text!=='string'||cell.text.length>140||(cell.borders!==undefined&&(!cell.borders||typeof cell.borders!=='object'||Array.isArray(cell.borders)||Object.entries(cell.borders).some(([k,v])=>!['t','r','b','l'].includes(k)||!Number.isInteger(v)||v<0||v>3)))||(cell.fontSize!==undefined&&(!Number.isInteger(cell.fontSize)||cell.fontSize<9||cell.fontSize>42))||(cell.bold!==undefined&&typeof cell.bold!=='boolean')||(cell.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(cell.role))) return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
+        if(!cell||![cell.r,cell.c,cell.rs,cell.cs].every(Number.isInteger)||cell.r<0||cell.c<0||cell.rs<1||cell.cs<1||cell.r+cell.rs>t.heights.length||cell.c+cell.cs>t.widths.length||typeof cell.text!=='string'||cell.text.length>140||(cell.borders!==undefined&&(!cell.borders||typeof cell.borders!=='object'||Array.isArray(cell.borders)||Object.entries(cell.borders).some(([k,v])=>!['t','r','b','l'].includes(k)||!Number.isInteger(v)||v<0||v>3)))||(cell.fontSize!==undefined&&(!Number.isInteger(cell.fontSize)||cell.fontSize<9||cell.fontSize>42))||(cell.bold!==undefined&&typeof cell.bold!=='boolean')||(cell.align!==undefined&&!['left','center','right'].includes(cell.align))||(cell.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(cell.role))) return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
         for(let r=cell.r;r<cell.r+cell.rs;r++)for(let c=cell.c;c<cell.c+cell.cs;c++){const key=r+','+c;if(occupied.has(key))return json({ok:false,error:'셀 병합 범위가 겹칩니다.'},400);occupied.add(key)}
       }
       await db.prepare("INSERT INTO daily_template_settings(id,template_json,updated_at) VALUES(1,?,CURRENT_TIMESTAMP) ON CONFLICT(id) DO UPDATE SET template_json=excluded.template_json,updated_at=CURRENT_TIMESTAMP").bind(JSON.stringify(t)).run();
@@ -2280,8 +2280,8 @@ async function makeDailyMonthXlsx(db,month){
     }
     const size=Math.max(9,Math.min(42,Number(cell.fontSize)||13)),fk=size+':'+(cell.bold?1:0);
     if(!fontIds.has(fk)){fontIds.set(fk,fonts.length);fonts.push('<font>'+(cell.bold?'<b/>':'')+'<sz val="'+size+'"/><name val="Malgun Gothic"/></font>')}
-    const sk=fontIds.get(fk)+':'+borderIds.get(bk);
-    if(!styleIds.has(sk)){styleIds.set(sk,styles.length);styles.push('<xf numFmtId="0" fontId="'+fontIds.get(fk)+'" fillId="0" borderId="'+borderIds.get(bk)+'" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>')}
+    const align=['left','right'].includes(cell.align)?cell.align:'center';const sk=fontIds.get(fk)+':'+borderIds.get(bk)+':'+align;
+    if(!styleIds.has(sk)){styleIds.set(sk,styles.length);styles.push('<xf numFmtId="0" fontId="'+fontIds.get(fk)+'" fillId="0" borderId="'+borderIds.get(bk)+'" xfId="0" applyAlignment="1"><alignment horizontal="'+align+'" vertical="center" wrapText="1"/></xf>')}
     return styleIds.get(sk);
   }
   const sheets=[],files=[];
