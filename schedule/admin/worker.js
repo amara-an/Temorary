@@ -260,6 +260,7 @@ const PAGE = `<!doctype html>
 .daily-grid.edit-mode th{background:#fff}
 .daily-grid td.selected{outline:2px solid #333;outline-offset:-2px}
 .daily-grid td.in-range{outline:2px dashed #666;outline-offset:-2px}
+.daily-grid td:not(:has(input)):not(:has(textarea)){user-select:none;-webkit-user-select:none}.daily-grid td::selection,.daily-grid td *::selection{background:transparent}
 .daily-grid td.multi-selected{outline:2px dashed #111;outline-offset:-2px}
 .daily-grid.edit-mode th.col-picked,.daily-grid.edit-mode th.row-picked{box-shadow:inset 0 0 0 2px #222;background:#fff}
 .daily-grid.edit-mode thead th[data-col],.daily-grid.edit-mode th.row-num[data-row]{cursor:pointer}
@@ -1591,7 +1592,7 @@ const PAGE = `<!doctype html>
   if(dailyEditing)return;
   const name=e.target.closest('button[data-person]');if(name&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey){dailyChooseEmployee(name.dataset.person);return}
   const td=e.target.closest('td[data-r]');if(!td||e.target.closest('.daily-inline-input'))return;
-  if(e.shiftKey||e.ctrlKey||e.metaKey){dailySelect(+td.dataset.r,+td.dataset.c,e.shiftKey,e.ctrlKey||e.metaKey);dailySheet.focus({preventScroll:true});return}
+  if(e.shiftKey||e.ctrlKey||e.metaKey){e.preventDefault();window.getSelection()?.removeAllRanges();dailySelect(+td.dataset.r,+td.dataset.c,e.shiftKey,e.ctrlKey||e.metaKey);dailySheet.focus({preventScroll:true});return}
   const alreadySelected=!dailyEditing&&!dailyRange&&!dailyMarkedCells.size&&dailySelected.r===+td.dataset.r&&dailySelected.c===+td.dataset.c;
   dailySelect(+td.dataset.r,+td.dataset.c,false);
   if(alreadySelected)dailyBeginInlineEdit();else dailySheet.focus({preventScroll:true});
