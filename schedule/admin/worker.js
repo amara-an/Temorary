@@ -281,8 +281,8 @@ const PAGE = `<!doctype html>
 /* A resize handle does not exist as a hit target until its cell or header is explicitly selected. */
 .daily-grid.edit-mode .col-resize{display:none;position:absolute;top:0;right:0px;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .daily-grid.edit-mode .row-resize{display:none;position:absolute;left:0;right:7px;bottom:0px;height:7px;cursor:row-resize;z-index:5;touch-action:none}
-.daily-grid.edit-mode th[data-col]>.col-resize,.daily-grid.edit-mode th[data-row]>.row-resize{display:block;background:rgba(80,100,130,.12)}.daily-grid.edit-mode th[data-col]>.col-resize{width:10px}.daily-grid.edit-mode th[data-row]>.row-resize{height:9px;right:0}
-.daily-grid.edit-mode .col-resize:hover::after,.daily-grid.edit-mode .row-resize:hover::after{content:'';position:absolute;background:#555;pointer-events:none}
+.daily-grid.edit-mode th[data-col],.daily-grid.edit-mode th[data-row]{overflow:visible}.daily-grid.edit-mode th[data-col]>.col-resize,.daily-grid.edit-mode th[data-row]>.row-resize{display:block;background:transparent;z-index:20}.daily-grid.edit-mode th[data-col]>.col-resize{width:20px;right:-10px}.daily-grid.edit-mode th[data-row]>.row-resize{height:18px;bottom:-9px;right:0}.daily-grid.edit-mode th[data-col]:has(>.col-resize),.daily-grid.edit-mode th[data-row]:has(>.row-resize){z-index:6}
+.daily-grid.edit-mode .col-resize:hover::after,.daily-grid.edit-mode .row-resize:hover::after{content:none}
 .daily-grid.edit-mode .col-resize:hover::after{width:2px;top:0;bottom:0;right:4px}
 .daily-grid.edit-mode .row-resize:hover::after{height:2px;left:0;right:0;bottom:4px}
 .daily-edit-tools,.daily-content-tools{border:1px solid #cbd7e6;background:#f7fafd;border-radius:9px;padding:9px;margin:9px 0;display:flex;gap:7px;flex-wrap:wrap;align-items:center}
