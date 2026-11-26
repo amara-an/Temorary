@@ -1551,7 +1551,7 @@ const PAGE = `<!doctype html>
   if((e.key==='Backspace'||e.key==='Delete')&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailySetText('')}
  }
  function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('th[data-col]>.col-resize,th[data-row]>.row-resize'),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
-  if(!grip&&(headCol||headRow)){const rect=(headCol||headRow).getBoundingClientRect(),dx=Math.abs(e.clientX-(rect.left+rect.right)/2),dy=Math.abs(e.clientY-(rect.top+rect.bottom)/2);if(dx>Math.min(12,Math.max(3,rect.width/2-12))||dy>Math.min(9,Math.max(3,rect.height/2-(headRow?11:2))))return;}
+  if(!grip&&(headCol||headRow)){const rect=(headCol||headRow).getBoundingClientRect(),dx=Math.abs(e.clientX-(rect.left+rect.right)/2),dy=Math.abs(e.clientY-(rect.top+rect.bottom)/2);const font=parseFloat(getComputedStyle(headCol||headRow).fontSize)||12;if(dx>Math.min(font,Math.max(3,rect.width/2-12))||dy>Math.min(font,Math.max(3,rect.height/2-(headRow?11:2))))return;}
   e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
   let resize=null;
   if(grip){const col=grip.classList.contains('col-resize'),axis=col?'col':'row';resize={axis,index:+grip.dataset[axis]}}
