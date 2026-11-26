@@ -1249,7 +1249,7 @@ const PAGE = `<!doctype html>
  }
  function dailySelect(r,c,extend,toggle){const cell=dailyCell(r,c);dailyTypingKey=null;
   if(toggle){dailyChosenCols.clear();dailyChosenRows.clear();dailyRange=null;if(!dailyMarkedCells.size)dailyMarkedCells.add(dailyKey(dailySelected.r,dailySelected.c));const key=dailyKey(cell.r,cell.c);if(dailyMarkedCells.has(key))dailyMarkedCells.delete(key);else dailyMarkedCells.add(key);dailySelected={r:cell.r,c:cell.c};dailyAnchor={...dailySelected}}
-  else if(extend){dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();const a=dailyAnchor||dailySelected;dailyRange={r1:Math.min(a.r,cell.r),c1:Math.min(a.c,cell.c),r2:Math.max(a.r,cell.r+cell.rs-1),c2:Math.max(a.c,cell.c+cell.cs-1)};dailySelected={r:a.r,c:a.c}}
+  else if(extend){dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();const a=dailyAnchor||dailySelected;dailyRange={r1:Math.min(a.r,cell.r),c1:Math.min(a.c,cell.c),r2:Math.max(a.r,cell.r),c2:Math.max(a.c,cell.c)};dailySelected={r:a.r,c:a.c}}
   else{dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailySelected={r:cell.r,c:cell.c};dailyAnchor={r:cell.r,c:cell.c};dailyRange=null}if(dailyEditing){dailyResizeArmed=true;dailySheet.classList.add('resize-armed')}dailyPaintSelection()}
  function dailySelectHeader(axis,index,extend,toggle){dailyTypingKey=null;dailyMarkedCells.clear();dailyRange=null;
   const col=axis==='col',target=col?dailyChosenCols:dailyChosenRows,other=col?dailyChosenRows:dailyChosenCols,prev=col?dailyColAnchor:dailyRowAnchor;
