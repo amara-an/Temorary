@@ -240,6 +240,7 @@ const PAGE = `<!doctype html>
 #dailyTemplateView:not([hidden]){display:flex;flex-direction:column;height:calc(100dvh - 32px);min-height:0;min-width:0;overflow:hidden}
 .daily-sheet-wrap{width:100%;flex:1 1 auto;overflow:auto;height:auto;max-height:none;min-height:0;overscroll-behavior:contain;background:#fff;border:1px solid #cbd7e6;border-radius:9px;padding:8px;position:relative}
 .daily-sheet-wrap.editing{height:auto;max-height:none;min-height:0;touch-action:pan-x pan-y}
+#dailyTemplateView.layout-editing .daily-topbar{background:#e2eaf8;border-radius:8px;padding:8px;color:#183b70} #dailyTemplateView.layout-editing .daily-input-row{background:#e2eaf8;border-radius:8px;padding:6px} #dailyTemplateView.layout-editing .daily-sheet-wrap{background:#d5dfef;border-color:#8fa6c6} #dailyTemplateView.layout-editing #dailyModeTitle{color:#183b70;font-weight:800} #dailyTemplateView.layout-editing #dailyToggleEdit{background:#fff;border-color:#5675a5;color:#183b70}
 .daily-a4-frame{box-sizing:border-box;width:794px;min-height:1123px;padding:23px;background:#fff;border:1px solid #9aabbc;box-shadow:0 3px 12px #0002;position:relative;overflow:hidden}
 .daily-split{display:block;width:max-content;background:#fff}.daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
@@ -366,7 +367,7 @@ const PAGE = `<!doctype html>
   </div>
   <section id="dailyTemplateView" hidden>
    <div class="daily-topbar">
-    <h1>일일 근무표</h1>
+    <h1 id="dailyModeTitle">일일 근무표</h1>
     <div class="daily-date-controls"><button class="btn" type="button" id="dailyPrev" aria-label="전날">◀</button><input type="date" id="dailyDate" aria-label="일간 근무표 날짜"><button class="btn" type="button" id="dailyNext" aria-label="다음 날">▶</button></div>
     <button class="btn" type="button" id="dailyPrint">출력하기</button>
     <button class="btn" type="button" id="dailyUndo" title="되돌리기 · Windows Ctrl+Z / Mac ⌘+Z" disabled>↶</button><button class="btn" type="button" id="dailyRedo" title="다시 실행 · Windows Ctrl+Y 또는 Ctrl+Shift+Z / Mac ⌘+Shift+Z" disabled>↷</button>
@@ -1222,7 +1223,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyResetLayout').hidden=!dailyEditing;$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyTemplateView').classList.toggle('layout-editing',dailyEditing);$('dailyModeTitle').textContent=dailyEditing?'일일 근무표 · 표 편집 모드':'일일 근무표';$('dailyResetLayout').hidden=!dailyEditing;$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력으로 돌아가기':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
