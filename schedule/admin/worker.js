@@ -263,7 +263,7 @@ const PAGE = `<!doctype html>
 .daily-grid td:not(:has(input)):not(:has(textarea)){user-select:none;-webkit-user-select:none}.daily-grid td::selection,.daily-grid td *::selection{background:transparent}
 .daily-grid td.multi-selected{outline:2px dashed #111;outline-offset:-2px}
 .daily-grid.edit-mode th.col-picked,.daily-grid.edit-mode th.row-picked{box-shadow:inset 0 0 0 2px #222;background:#fff}
-.daily-grid.edit-mode thead th[data-col],.daily-grid.edit-mode th.row-num[data-row]{cursor:pointer}
+.daily-grid.edit-mode thead th[data-col],.daily-grid.edit-mode th.row-num[data-row]{cursor:default}
 .daily-edit-tools button:disabled{opacity:.42;cursor:not-allowed}
 .daily-border-picker{position:relative;display:inline-flex;align-items:center}
 .daily-border-panel{position:absolute;top:calc(100% + 5px);left:0;z-index:70;width:250px;max-width:calc(100vw - 90px);padding:11px;background:#fff;border:1px solid #6b7e91;border-radius:8px;box-shadow:0 8px 22px #0002;color:#111}
@@ -1551,6 +1551,7 @@ const PAGE = `<!doctype html>
   if((e.key==='Backspace'||e.key==='Delete')&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailySetText('')}
  }
  function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('th[data-col]>.col-resize,th[data-row]>.row-resize'),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
+  if(!grip&&(headCol||headRow)){const rect=(headCol||headRow).getBoundingClientRect(),dx=Math.abs(e.clientX-(rect.left+rect.right)/2),dy=Math.abs(e.clientY-(rect.top+rect.bottom)/2);if(dx>Math.min(12,Math.max(3,rect.width/2-12))||dy>Math.min(9,Math.max(3,rect.height/2-(headRow?11:2))))return;}
   e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
   let resize=null;
   if(grip){const col=grip.classList.contains('col-resize'),axis=col?'col':'row';resize={axis,index:+grip.dataset[axis]}}
