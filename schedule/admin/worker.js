@@ -377,7 +377,7 @@ const PAGE = `<!doctype html>
    <div class="daily-input-row">
    <div id="dailyContentTools" hidden>
     <label>셀 <strong id="dailyContentCoord">A1</strong></label>
-     <label>역할 <select id="dailyRole"><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
+     <label>역할 <select id="dailyRole"><option value="__mixed" disabled>여러 역할</option><option value="">기입란</option><option value="date">날짜</option><option value="code">근무 코드</option><option value="time">근무시간</option><option value="names">직원 이름 (읽기 전용)</option><option value="leave">휴무 명단</option><option value="annual">연차 명단</option><option value="shared">공유 (직접 입력)</option></select></label>
      <label>폰트 <input id="dailyFontSize" type="number" min="9" max="42" step="1" aria-label="글꼴 크기"></label>
      <label>굵기 <input id="dailyBold" type="checkbox" aria-label="굵게"></label>
      <button class="btn" type="button" id="dailyAlign" title="선택한 셀의 내용 정렬 변경 (왼쪽 → 가운데 → 오른쪽)">정렬: 가운데</button>
@@ -1230,9 +1230,9 @@ const PAGE = `<!doctype html>
   else if(dailyChosenRows.size)coord=[...dailyChosenRows].sort((a,b)=>a-b).map(r=>r+1).join(' · ')+' 행';
   else if(dailyMarkedCells.size>1)coord=dailyMarkedCells.size+'개 셀';
   $('dailyCoord').textContent=coord;$('dailyContentCoord').textContent=coord;
-  const role=cell.role||'',key=dailyKey(cell.r,cell.c);$('dailyRole').value=role;
+  const role=cell.role||'',key=dailyKey(cell.r,cell.c);const selectedRoles=new Set(dailyBorderTargets().targets.map(x=>x.role||''));$('dailyRole').value=selectedRoles.size>1?'__mixed':role;
   $('dailyFontSize').value=cell.fontSize||13;$('dailyBold').checked=!!cell.bold;$('dailyAlign').textContent='정렬: '+({left:'왼쪽',center:'가운데',right:'오른쪽'}[cell.align]||'가운데');$('dailyColWidth').value=dailyTemplate.widths[cell.c];$('dailyRowHeight').value=dailyTemplate.heights[cell.r];
-  for(const el of dailySheet.querySelectorAll('td[data-r]')){const r=+el.dataset.r,c=+el.dataset.c,inside=dailyRange&&r>=dailyRange.r1&&r<=dailyRange.r2&&c>=dailyRange.c1&&c<=dailyRange.c2;
+  for(const el of dailySheet.querySelectorAll('td[data-r]')){const r=+el.dataset.r,c=+el.dataset.c,inside=dailyRange&&r<=dailyRange.r2&&r+el.rowSpan-1>=dailyRange.r1&&c<=dailyRange.c2&&c+el.colSpan-1>=dailyRange.c1;
    el.classList.toggle('selected',r===cell.r&&c===cell.c);
    el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan));
    el.classList.toggle('multi-selected',dailyMarkedCells.has(dailyKey(r,c)));
@@ -1265,14 +1265,13 @@ const PAGE = `<!doctype html>
  function dailyUndo(){if(!dailyUndoHistory.length)return;dailyRedoHistory.push(dailyCurrentSnapshot());dailyRestore(dailyUndoHistory.pop())}
  function dailyRedo(){if(!dailyRedoHistory.length)return;dailyUndoHistory.push(dailyCurrentSnapshot());dailyRestore(dailyRedoHistory.pop())}
  function dailyHistoryClear(){dailyUndoHistory=[];dailyRedoHistory=[];dailyTypingKey=null;dailyUndoButtons()}
- function dailyStyleTargets(){const cells=new Map();for(const x of dailyTemplate.cells){if(dailyMarkedCells.has(dailyKey(x.r,x.c))||dailyRange&&x.r<=dailyRange.r2&&x.r+x.rs-1>=dailyRange.r1&&x.c<=dailyRange.c2&&x.c+x.cs-1>=dailyRange.c1||dailyChosenCols.size&&[...dailyChosenCols].some(c=>c>=x.c&&c<x.c+x.cs)||dailyChosenRows.size&&[...dailyChosenRows].some(r=>r>=x.r&&r<x.r+x.rs))cells.set(dailyKey(x.r,x.c),x)}
-  if(!cells.size){const x=dailyEntry(dailySelected.r,dailySelected.c);cells.set(dailyKey(x.r,x.c),x)}return [...cells.values()]}
+ function dailyStyleTargets(){return dailyBorderTargets().targets.map(x=>dailyEntry(x.r,x.c))}
  function dailyDirtyMark(template){if(template)dailyDirty=true;else dailyDayDirty=true;dailyUnsavedStatus()}
  function dailyUnsavedStatus(){dailySaveButtons()}
  function dailySetText(value){const cell=dailyCell(dailySelected.r,dailySelected.c);if(cell.role&&cell.role!=='shared')return;const key=dailyKey(cell.r,cell.c);
   const scope=dailyEditing?'template':'date';const batch=dailyDateValue+'|'+key+'|'+scope;if(dailyTypingKey!==batch){dailyRemember();dailyTypingKey=batch}
   if(scope==='template'){dailyEntry(cell.r,cell.c).text=value;dailyDirtyMark(true)}else{dailyOverrides[key]=value;dailyDirtyMark(false)}dailyPaint()}
- function dailySetRole(role){const entry=dailyEntry(dailySelected.r,dailySelected.c);if((entry.role||'')===role)return;dailyRemember();entry.role=role;dailyDirtyMark(true);dailyPaint()}
+ function dailySetRole(role){const targets=dailyBorderTargets().targets;if(targets.every(x=>(x.role||'')===role))return;dailyRemember();for(const x of targets)dailyEntry(x.r,x.c).role=role;dailyDirtyMark(true);dailyPaint()}
  function dailyBorderTargets(){
   const selected=new Set();const rows=dailyTemplate.heights.length,cols=dailyTemplate.widths.length;
   const add=(r,c)=>{if(r>=0&&r<rows&&c>=0&&c<cols)selected.add(dailyKey(r,c))};
@@ -1599,9 +1598,10 @@ const PAGE = `<!doctype html>
  $('dailySheetTable').addEventListener('dblclick',e=>{const td=e.target.closest('td[data-r]');if(td){dailySelect(+td.dataset.r,+td.dataset.c,false);dailyBeginInlineEdit()}});
  $('dailySheetTable').addEventListener('click',e=>{
   if(dailyEditing)return;
-  const name=e.target.closest('button[data-person]');if(name){dailyChooseEmployee(name.dataset.person);return}
+  const name=e.target.closest('button[data-person]');if(name&&!e.shiftKey&&!e.ctrlKey&&!e.metaKey){dailyChooseEmployee(name.dataset.person);return}
   const td=e.target.closest('td[data-r]');if(!td||e.target.closest('.daily-inline-input'))return;
-  const alreadySelected=!dailyEditing&&dailySelected.r===+td.dataset.r&&dailySelected.c===+td.dataset.c;
+  if(e.shiftKey||e.ctrlKey||e.metaKey){dailySelect(+td.dataset.r,+td.dataset.c,e.shiftKey,e.ctrlKey||e.metaKey);dailySheet.focus({preventScroll:true});return}
+  const alreadySelected=!dailyEditing&&!dailyRange&&!dailyMarkedCells.size&&dailySelected.r===+td.dataset.r&&dailySelected.c===+td.dataset.c;
   dailySelect(+td.dataset.r,+td.dataset.c,false);
   if(alreadySelected)dailyBeginInlineEdit();else dailySheet.focus({preventScroll:true});
  });
