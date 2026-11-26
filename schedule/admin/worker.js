@@ -1511,10 +1511,10 @@ const PAGE = `<!doctype html>
    document.documentElement.style.setProperty('--daily-print-scale',String(scale));
    const frame=()=>'<div class="daily-a4-frame"><div style="zoom:'+scale+'"><table class="daily-grid">'+dailyTableHtml(false)+'</table></div></div>';
    const originalDay=dailyDay,originalOverrides=dailyOverrides;let html=frame();
-   try{for(const item of days){dailyDateValue=item.date;dailyDay=item.body;dailyOverrides=item.body.overrides||{};html+=frame()}}
+   try{for(const item of days){if(!(item.body.shifts||[]).some(x=>String(x.code||'').trim()))continue;dailyDateValue=item.date;dailyDay=item.body;dailyOverrides=item.body.overrides||{};html+=frame()}}
    finally{dailyDateValue=date;dailyDay=originalDay;dailyOverrides=originalOverrides}
    const printNode=$('dailyPrintOnly'),home=$('dailySheetWrap');printNode.innerHTML=html;
-   printNode.classList.toggle('daily-multi-print',count>1);
+   printNode.classList.toggle('daily-multi-print',printNode.children.length>1);
    document.body.appendChild(printNode);document.body.classList.add('daily-print-active');
    const restore=()=>{document.body.classList.remove('daily-print-active');printNode.classList.remove('daily-multi-print');home.insertAdjacentElement('afterend',printNode);window.removeEventListener('afterprint',restore);};
    window.addEventListener('afterprint',restore,{once:true});window.print();
