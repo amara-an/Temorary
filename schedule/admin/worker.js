@@ -245,6 +245,12 @@ const PAGE = `<!doctype html>
 .daily-split{display:block;width:max-content;background:#fff}.daily-grid{border-collapse:collapse;table-layout:fixed;width:max-content;background:#fff;color:#263446}
 .daily-grid th,.daily-grid td{box-sizing:border-box;border:1px solid #99abc0;position:relative;padding:5px 4px;text-align:center;vertical-align:middle;white-space:pre-wrap;word-break:break-word;line-height:1.25}
 .daily-grid td{font-size:13px}
+.daily-grid.edit-mode{display:grid;grid-template-columns:var(--layout-cols);grid-template-rows:var(--layout-rows);border-collapse:separate}
+.daily-grid.edit-mode colgroup{display:none}.daily-grid.edit-mode thead,.daily-grid.edit-mode tbody,.daily-grid.edit-mode tr{display:contents}
+.daily-grid.edit-mode td,.daily-grid.edit-mode th{min-height:0;min-width:0;height:auto;overflow:hidden;position:relative}
+.daily-grid.edit-mode td{display:flex;align-items:center;justify-content:center;padding:0 4px}
+.daily-grid.edit-mode th.row-num[data-row]{height:auto;padding:0;font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center}
+.daily-grid.edit-mode thead th{height:auto;padding:0;display:flex;align-items:center;justify-content:center}
 .daily-grid.edit-mode{touch-action:none;user-select:none;-webkit-user-select:none;cursor:cell}
 .daily-grid.edit-mode td,.daily-grid.edit-mode th{touch-action:none;user-select:none;-webkit-user-select:none}
 .daily-grid.edit-mode th{height:27px;font-size:12px;font-weight:600;background:#e8eff7;position:sticky;z-index:2}
@@ -1200,11 +1206,11 @@ const PAGE = `<!doctype html>
   let out='<colgroup>'+(edit?'<col style="width:37px">':'');
   for(let c=0;c<w.length;c++)out+='<col style="width:'+w[c]+'px">';
   out+='</colgroup>';
-  if(edit){out+='<thead><tr><th class="row-num"></th>';for(let c=0;c<w.length;c++)out+='<th data-col="'+c+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
+  if(edit){out+='<thead><tr><th class="row-num" style="grid-area:1/1"></th>';for(let c=0;c<w.length;c++)out+='<th data-col="'+c+'" style="grid-area:1/'+(c+2)+'">'+dailyColLabel(c)+'<span class="col-resize" data-col="'+c+'"></span></th>';out+='</tr></thead>'}
   out+='<tbody>';const occupied=new Set();
   for(let r=0;r<h.length;r++){
    out+='<tr style="height:'+h[r]+'px">';
-   if(edit)out+='<th class="row-num" data-row="'+r+'">'+(r+1)+'<span class="row-resize" data-row="'+r+'"></span></th>';
+   if(edit){const band=dailyCell(r,Math.min(dailySelected.c,w.length-1));if(band.r===r)out+='<th class="row-num" data-row="'+r+'" style="grid-row:'+(r+2)+' / span '+band.rs+';grid-column:1">'+(r+1)+'<span class="row-resize" data-row="'+(r+band.rs-1)+'"></span></th>'}
    for(let c=0;c<w.length;c++){
     if(occupied.has(dailyKey(r,c)))continue;
     const cell=dailyCell(r,c);
@@ -1213,7 +1219,7 @@ const PAGE = `<!doctype html>
     const dat=edit?{value:cell.text||''}:dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
     const sides=[['t','top'],['r','right'],['b','bottom'],['l','left']];
     const borderStyle=sides.map(([key,side])=>{const n=Number.isInteger(borders[key])&&borders[key]>=0&&borders[key]<=3?borders[key]:1;return 'border-'+side+':'+n+'px '+(n?'solid #222':'none transparent')+';'}).join('');
-    const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
+    const style=(edit?'grid-row:'+(r+2)+' / span '+cell.rs+';grid-column:'+(c+2)+' / span '+cell.cs+';':'')+'font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
     let content=text(dat.value||'');
     if(role==='names'&&!edit&&dat.people?.length)content=dat.people.map(p=>'<button type="button" class="name-tag" data-person="'+text(p.id)+'" title="이름 수정 불가 · 근무 코드 선택">'+text(p.name)+'</button>').join('');
     const grips=edit?'<span class="col-resize" data-col="'+(c+cell.cs-1)+'" title="열 너비 조절" aria-hidden="true"></span><span class="row-resize" data-row="'+(r+cell.rs-1)+'" title="행 높이 조절" aria-hidden="true"></span>':'';
@@ -1223,7 +1229,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyTemplateView').classList.toggle('layout-editing',dailyEditing);$('dailyModeTitle').textContent=dailyEditing?'일일 근무표 · 표 편집 모드':'일일 근무표';$('dailyResetLayout').hidden=!dailyEditing;$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력으로 돌아가기':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'"'+(dailyEditing?' style="--layout-cols:37px '+dailyTemplate.widths.map(n=>n+'px').join(' ')+';--layout-rows:27px '+dailyTemplate.heights.map(n=>n+'px').join(' ')+'"':'')+'>'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyTemplateView').classList.toggle('layout-editing',dailyEditing);$('dailyModeTitle').textContent=dailyEditing?'일일 근무표 · 표 편집 모드':'일일 근무표';$('dailyResetLayout').hidden=!dailyEditing;$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력으로 돌아가기':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
@@ -1237,6 +1243,7 @@ const PAGE = `<!doctype html>
    el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan));
    el.classList.toggle('multi-selected',dailyMarkedCells.has(dailyKey(r,c)));
   }
+  if(dailyEditing){const tbody=dailySheet.querySelector('tbody');if(tbody){for(const th of tbody.querySelectorAll('th[data-row]'))th.remove();for(let r=0;r<dailyTemplate.heights.length;){const b=dailyCell(r,cell.c),tr=tbody.children[r];if(tr)tr.insertAdjacentHTML('afterbegin','<th class="row-num" data-row="'+r+'" style="grid-row:'+(r+2)+' / span '+b.rs+';grid-column:1">'+(r+1)+'<span class="row-resize" data-row="'+(r+b.rs-1)+'"></span></th>');r+=b.rs}}}
   for(const th of dailySheet.querySelectorAll('thead th[data-col]'))th.classList.toggle('col-picked',dailyChosenCols.has(+th.dataset.col));
   for(const th of dailySheet.querySelectorAll('tbody th[data-row]'))th.classList.toggle('row-picked',dailyChosenRows.has(+th.dataset.row));
  }
@@ -1402,33 +1409,17 @@ const PAGE = `<!doctype html>
   dailyRemember();dailyTemplate.heights=next;dailyDirtyMark(true);dailyPaint();return true;
  }
  function dailyEqualizeRows(){
-  if(dailySaving)return;
-  if(!dailyTemplate.freeLayout&&!dailyChosenCols.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1){if(dailyEqualizeLeftRows())return;return alert('선택 영역에 균등 배분할 수 있는 셀이 2개 이상 필요합니다. A~C의 같은 행 경계를 선택하세요.');}
-  const heights=dailyTemplate.heights;
-  const selected=new Set();
-  const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
-  if(dailyChosenRows.size){
-    for(const r of dailyChosenRows)if(r>=0&&r<heights.length)selected.add(r);
-  }else if(dailyRange){
-    for(let r=dailyRange.r1;r<=dailyRange.r2;r++)if(r>=0&&r<heights.length)selected.add(r);
-  }else if(dailyMarkedCells.size){
-    for(const key of dailyMarkedCells){
-      const [r,c]=key.split(',').map(Number);
-      addRows(dailyCell(r,c));
-    }
-  }else addRows(dailyCell(dailySelected.r,dailySelected.c));
-  const rows=[...selected].sort((a,b)=>a-b);
-  if(rows.length<2){$('dailyStatus').textContent='높이를 맞출 행을 2개 이상 선택하세요.';return}
-  const total=rows.reduce((sum,r)=>sum+heights[r],0);
-  const unit=Math.floor(total/rows.length),extra=total%rows.length;
-  const values=rows.map((_,i)=>unit+(i<extra?1:0));
-  if(rows.every((r,i)=>heights[r]===values[i])){
-    $('dailyStatus').textContent='선택한 행은 이미 균등한 높이입니다.';return;
-  }
-  dailyRemember();
-  for(let i=0;i<rows.length;i++)heights[rows[i]]=values[i];
-  dailyDirtyMark(true);
-  dailyPaint();
+ if(dailySaving)return;
+ const h=dailyTemplate.heights,c=dailySelected.c,bands=[];
+ for(let r=0;r<h.length;){const x=dailyCell(r,c);bands.push({r:x.r,rs:x.rs});r=x.r+x.rs}
+ const selected=dailyChosenRows.size?[...dailyChosenRows]:dailyRange?Array.from({length:dailyRange.r2-dailyRange.r1+1},(_,i)=>dailyRange.r1+i):dailyMarkedCells.size?[...dailyMarkedCells].map(k=>+k.split(',')[0]):[dailySelected.r];
+ let chosen=bands.filter(b=>selected.some(r=>r>=b.r&&r<b.r+b.rs));
+ if(chosen.length<2)return alert('높이를 맞출 셀을 세로로 2개 이상 선택하세요.');
+ const total=chosen.reduce((n,b)=>n+h.slice(b.r,b.r+b.rs).reduce((a,v)=>a+v,0),0);
+ const next=h.slice();
+ for(let i=0;i<chosen.length;i++){const b=chosen[i],size=Math.floor((i+1)*total/chosen.length)-Math.floor(i*total/chosen.length);for(let k=0;k<b.rs;k++)next[b.r+k]=Math.floor((k+1)*size/b.rs)-Math.floor(k*size/b.rs)}
+ if(next.some(n=>n>170))return alert('행 높이 허용 범위를 초과합니다.');
+ dailyRemember();dailyTemplate.heights=next;dailyDirtyMark(true);dailyPaint();
  }
  function dailyResizeTargets(axis,index){const picked=axis==='col'?dailyChosenCols:dailyChosenRows;return picked.has(index)?[...picked].sort((a,b)=>a-b):[index]}
  function dailyResize(axis,index,newSize){
