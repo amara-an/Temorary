@@ -311,6 +311,12 @@ const PAGE = `<!doctype html>
  body.daily-print-active>.app{display:none!important} body.daily-print-active>#dailyPrintOnly{display:block!important;position:absolute!important;top:0!important;left:0!important;margin:0!important;padding:0!important} body.daily-print-active{height:auto!important;min-height:0!important;margin:0!important;padding:0!important;overflow:hidden!important} #dailyPrintOnly .daily-grid td{background:#fff!important;color:#000!important;line-height:1.15} #dailyPrintOnly .name-tag{border:0!important;border-radius:0!important;background:transparent!important;padding:0!important;margin:0 3px!important;box-shadow:none!important;cursor:default!important}
 }
 
+@media print{
+ body.daily-print-active:has(>#dailyPrintOnly.daily-multi-print){overflow:visible!important}
+ body.daily-print-active>#dailyPrintOnly.daily-multi-print{position:static!important;overflow:visible!important}
+ #dailyPrintOnly.daily-multi-print .daily-a4-frame{break-inside:avoid;page-break-inside:avoid}
+ #dailyPrintOnly.daily-multi-print .daily-a4-frame:not(:last-child){break-after:page!important;page-break-after:always!important}
+}
 /* Employee name autocomplete; the selected value remains an immutable staff ID. */
 .daily-employee-lookup{position:relative;min-width:192px;width:220px}
 .daily-employee-lookup>input{height:36px;width:100%;border-radius:6px;border:1px solid #b4c6d8;background:#fff;padding:5px 9px;font-size:14px;box-sizing:border-box}
@@ -1484,15 +1490,35 @@ const PAGE = `<!doctype html>
   }catch(e){$('dailyStatus').textContent='저장 실패 · 변경 사항 유지: '+e.message;alert('저장 실패: '+e.message)}
   finally{dailySaving=false;$('dailyTemplateView').classList.remove('saving');dailyUndoButtons()}
  }
- function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
-  dailyFitA4Widths(dailyTemplate);const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.min(1,748/w,1050/h);
-  document.documentElement.style.setProperty('--daily-print-scale',String(Math.max(0.2,scale)));
-  const printNode=$('dailyPrintOnly'),home=$('dailySheetWrap');
-  printNode.innerHTML='<div class="daily-a4-frame"><div style="zoom:'+Math.max(0.2,scale)+'"><table class="daily-grid">'+dailyTableHtml(false)+'</table></div></div>';
-  document.body.appendChild(printNode);document.body.classList.add('daily-print-active');
-  const restore=()=>{document.body.classList.remove('daily-print-active');home.insertAdjacentElement('afterend',printNode);window.removeEventListener('afterprint',restore);};
-  window.addEventListener('afterprint',restore,{once:true});
-  window.print();
+ function dailyPrintMenu(){
+  const dialog=document.createElement('dialog');dialog.style.cssText='border:1px solid #b4c6d8;border-radius:10px;padding:16px;width:220px;max-width:85vw';
+  dialog.innerHTML='<h2 style="text-align:center;margin:0 0 12px;font-size:20px">출력</h2><div style="display:grid;gap:8px"><button class="btn primary" data-days="1">현재 날짜 출력</button><button class="btn primary" data-days="7">+6일 출력</button><button class="btn" data-days="0">취소</button></div>';
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  dialog.addEventListener('click',e=>{const b=e.target.closest('[data-days]');if(!b)return;const n=Number(b.dataset.days);dialog.close();if(n)dailyPrint(n)});
+  document.body.appendChild(dialog);dialog.showModal();
+ }
+ async function dailyPrint(count=1){
+  const button=$('dailyPrint');if(button.disabled)return;button.disabled=true;
+  const date=dailyDateValue;
+  try{
+   const days=await Promise.all(Array.from({length:count-1},async(_,i)=>{
+    const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+i+1);const day=d.toISOString().slice(0,10);
+    const res=await fetch('/api/daily-day?date='+encodeURIComponent(day),{credentials:'same-origin'}),body=await res.json();
+    if(!res.ok||!body.ok)throw Error(day+' · '+(body.error||'근무표 읽기 실패'));return {date:day,body};
+   }));
+   if(date!==dailyDateValue)throw Error('선택 날짜가 변경되었습니다. 다시 출력해 주세요.');
+   dailyFitA4Widths(dailyTemplate);const w=dailyTemplate.widths.reduce((a,b)=>a+b,0),h=dailyTemplate.heights.reduce((a,b)=>a+b,0),scale=Math.max(0.2,Math.min(1,748/w,1050/h));
+   document.documentElement.style.setProperty('--daily-print-scale',String(scale));
+   const frame=()=>'<div class="daily-a4-frame"><div style="zoom:'+scale+'"><table class="daily-grid">'+dailyTableHtml(false)+'</table></div></div>';
+   const originalDay=dailyDay,originalOverrides=dailyOverrides;let html=frame();
+   try{for(const item of days){dailyDateValue=item.date;dailyDay=item.body;dailyOverrides=item.body.overrides||{};html+=frame()}}
+   finally{dailyDateValue=date;dailyDay=originalDay;dailyOverrides=originalOverrides}
+   const printNode=$('dailyPrintOnly'),home=$('dailySheetWrap');printNode.innerHTML=html;
+   printNode.classList.toggle('daily-multi-print',count>1);
+   document.body.appendChild(printNode);document.body.classList.add('daily-print-active');
+   const restore=()=>{document.body.classList.remove('daily-print-active');printNode.classList.remove('daily-multi-print');home.insertAdjacentElement('afterend',printNode);window.removeEventListener('afterprint',restore);};
+   window.addEventListener('afterprint',restore,{once:true});window.print();
+  }catch(e){alert('출력 실패: '+e.message)}finally{button.disabled=false}
  }
  function dailyBeginInlineEdit(typed=null){
   if(dailySaving)return;
@@ -1581,7 +1607,7 @@ const PAGE = `<!doctype html>
  $('dailyPrev').addEventListener('click',()=>dailyDateShift(-1));$('dailyNext').addEventListener('click',()=>dailyDateShift(1));
  $('dailyDate').addEventListener('change',e=>{const target=e.target.value;if(!target)return;if(!dailyCanDiscard()){e.target.value=dailyDateValue;return}dailyDiscardOnDateChange();dailyDateValue=target;dailyLoadDay()});
  $('dailyToggleEdit').addEventListener('click',()=>{dailyEditing=!dailyEditing;dailyResizeArmed=false;dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailyPaint();dailySheet.focus({preventScroll:true})});
- $('dailyPrint').addEventListener('click',dailyPrint);
+ $('dailyPrint').addEventListener('click',dailyPrintMenu);
  $('dailyRole').addEventListener('change',e=>dailySetRole(e.target.value));
  $('dailyFontSize').addEventListener('change',e=>dailySetStyle('fontSize',Math.max(9,Math.min(42,+e.target.value||13))));
  $('dailyBold').addEventListener('change',e=>dailySetStyle('bold',e.target.checked));
