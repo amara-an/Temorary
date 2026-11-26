@@ -1550,15 +1550,19 @@ const PAGE = `<!doctype html>
   if((e.key==='F2'||e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailyBeginInlineEdit(e.key==='F2'?null:e.key)}
   if((e.key==='Backspace'||e.key==='Delete')&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailySetText('')}
  }
- function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('th[data-col]>.col-resize,th[data-row]>.row-resize'),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
-  if(!grip&&(headCol||headRow)){const rect=(headCol||headRow).getBoundingClientRect(),dx=Math.abs(e.clientX-(rect.left+rect.right)/2),dy=Math.abs(e.clientY-(rect.top+rect.bottom)/2);const font=parseFloat(getComputedStyle(headCol||headRow).fontSize)||12,ratio=Math.sqrt(rect.width/Math.max(1,rect.height));if(dx>Math.min(font*ratio,Math.max(3,rect.width/2-12))||dy>Math.min(font/ratio,Math.max(3,rect.height/2-(headRow?11:2))))return;}
-  e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
+ function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;
+  const td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');
+  if(!td&&!headCol&&!headRow)return;
   let resize=null;
-  if(grip){const col=grip.classList.contains('col-resize'),axis=col?'col':'row';resize={axis,index:+grip.dataset[axis]}}
-  else if(headCol||headRow){const col=!!headCol,head=headCol||headRow,axis=col?'col':'row',rect=head.getBoundingClientRect(),pos=col?e.clientX:e.clientY,center=col?(rect.left+rect.right)/2:(rect.top+rect.bottom)/2;
-   const half=Math.min(col?12:10,(col?rect.width:rect.height)*.32);
-   if(Math.abs(pos-center)>half){let index=+head.dataset[axis];if(pos<center)index--;else if(!col)index=+head.querySelector('.row-resize').dataset.row;if(index>=0)resize={axis,index};else return}
+  if(headCol||headRow){const col=!!headCol,head=headCol||headRow,axis=col?'col':'row',rect=head.getBoundingClientRect(),pos=col?e.clientX:e.clientY,lo=col?rect.left:rect.top,hi=col?rect.right:rect.bottom,edge=col?10:9;
+   const start=+head.dataset[axis],end=col?start:+head.querySelector('.row-resize').dataset.row;
+   if(start>0&&pos-lo<=edge&&pos-lo<=hi-pos)resize={axis,index:start-1};
+   else if(hi-pos<=edge)resize={axis,index:end};
+   else {const font=parseFloat(getComputedStyle(head).fontSize)||12,ratio=Math.sqrt(rect.width/Math.max(1,rect.height)),dx=Math.abs(e.clientX-(rect.left+rect.right)/2),dy=Math.abs(e.clientY-(rect.top+rect.bottom)/2);
+    if(dx>Math.min(font*ratio,Math.max(3,rect.width/2-(col?12:2)))||dy>Math.min(font/ratio,Math.max(3,rect.height/2-(col?2:11))))return;
+   }
   }
+  e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
   if(resize){const {axis,index}=resize,col=axis==='col';
    dailyPointer={id:e.pointerId,mode:'resize',axis,index,start:col?e.clientX:e.clientY,size:(col?dailyTemplate.widths:dailyTemplate.heights)[index]};
   }else if(headCol||headRow){const axis=headCol?'col':'row',index=+(headCol||headRow).dataset[axis];dailySelectHeader(axis,index,e.shiftKey,multi);dailyPointer={id:e.pointerId,mode:'header',axis,locked:multi}}
