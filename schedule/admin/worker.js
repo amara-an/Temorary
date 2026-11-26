@@ -1481,7 +1481,7 @@ const PAGE = `<!doctype html>
     if(!res.ok||!body.ok)throw Error(body.error||'저장 실패');
     dailyDirty=false;dailyDayDirty=false;dailyPendingCodes={};dailyOriginalCodes=Object.fromEntries(dailyDay.shifts.map(x=>[x.employee_id,x.code||'']));
     dailyHistoryClear();$('dailyStatus').textContent='저장 완료 · 월간 근무표에도 반영됨';
-  }catch(e){$('dailyStatus').textContent='저장 실패 · 변경 사항 유지: '+e.message}
+  }catch(e){$('dailyStatus').textContent='저장 실패 · 변경 사항 유지: '+e.message;alert('저장 실패: '+e.message)}
   finally{dailySaving=false;$('dailyTemplateView').classList.remove('saving');dailyUndoButtons()}
  }
  function dailyPrint(){// Build a separate print-only sheet: no editor handles, row numbers, or unsaved data loss.
@@ -1810,7 +1810,7 @@ async function employeeApi(request,env,url){
     let b;try{b=JSON.parse(raw)}catch(_){return json({ok:false,error:'잘못된 저장 데이터입니다.'},400)}
     if(!validDate(b?.date)||!Array.isArray(b.codes)||b.codes.length>200)return json({ok:false,error:'날짜나 근무 배정 형식이 올바르지 않습니다.'},400);
     if(b.template!=null){const t=b.template;
-      if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=25&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
+      if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=0&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
       const seen=new Set();for(const x of t.cells){if(!x||![x.r,x.c,x.rs,x.cs].every(Number.isInteger)||x.r<0||x.c<0||x.rs<1||x.cs<1||x.r+x.rs>t.heights.length||x.c+x.cs>t.widths.length||typeof x.text!=='string'||x.text.length>140||(x.borders!==undefined&&(!x.borders||typeof x.borders!=='object'||Array.isArray(x.borders)||Object.entries(x.borders).some(([k,v])=>!['t','r','b','l'].includes(k)||!Number.isInteger(v)||v<0||v>3)))||(x.fontSize!==undefined&&(!Number.isInteger(x.fontSize)||x.fontSize<9||x.fontSize>42))||(x.bold!==undefined&&typeof x.bold!=='boolean')||(x.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(x.role)))return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
         for(let r=x.r;r<x.r+x.rs;r++)for(let c=x.c;c<x.c+x.cs;c++){const key=r+','+c;if(seen.has(key))return json({ok:false,error:'셀 병합 범위가 겹칩니다.'},400);seen.add(key)}}
     }
@@ -1842,7 +1842,7 @@ async function employeeApi(request,env,url){
       if(raw.length>120000)return json({ok:false,error:'양식 크기가 너무 큽니다.'},413);
       let body;try{body=JSON.parse(raw)}catch(_){return json({ok:false,error:'잘못된 데이터입니다.'},400)}
       const t=body?.template;
-      if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=25&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
+      if(!t||!Array.isArray(t.widths)||!Array.isArray(t.heights)||!Array.isArray(t.cells)||t.widths.length<3||t.widths.length>20||t.heights.length<4||t.heights.length>70||t.cells.length>1400||!t.widths.every(n=>Number.isInteger(n)&&n>=42&&n<=650)||!t.heights.every(n=>Number.isInteger(n)&&n>=0&&n<=170))return json({ok:false,error:'양식 크기가 올바르지 않습니다.'},400);
       const occupied=new Set();
       for(const cell of t.cells){
         if(!cell||![cell.r,cell.c,cell.rs,cell.cs].every(Number.isInteger)||cell.r<0||cell.c<0||cell.rs<1||cell.cs<1||cell.r+cell.rs>t.heights.length||cell.c+cell.cs>t.widths.length||typeof cell.text!=='string'||cell.text.length>140||(cell.borders!==undefined&&(!cell.borders||typeof cell.borders!=='object'||Array.isArray(cell.borders)||Object.entries(cell.borders).some(([k,v])=>!['t','r','b','l'].includes(k)||!Number.isInteger(v)||v<0||v>3)))||(cell.fontSize!==undefined&&(!Number.isInteger(cell.fontSize)||cell.fontSize<9||cell.fontSize>42))||(cell.bold!==undefined&&typeof cell.bold!=='boolean')||(cell.align!==undefined&&!['left','center','right'].includes(cell.align))||(cell.role!==undefined&&!['','date','code','time','names','leave','annual','shared'].includes(cell.role))) return json({ok:false,error:'잘못된 셀 데이터입니다.'},400);
