@@ -370,7 +370,7 @@ const PAGE = `<!doctype html>
     <div class="daily-date-controls"><button class="btn" type="button" id="dailyPrev" aria-label="전날">◀</button><input type="date" id="dailyDate" aria-label="일간 근무표 날짜"><button class="btn" type="button" id="dailyNext" aria-label="다음 날">▶</button></div>
     <button class="btn" type="button" id="dailyPrint">출력하기</button>
     <button class="btn" type="button" id="dailyUndo" title="되돌리기 · Windows Ctrl+Z / Mac ⌘+Z" disabled>↶</button><button class="btn" type="button" id="dailyRedo" title="다시 실행 · Windows Ctrl+Y 또는 Ctrl+Shift+Z / Mac ⌘+Shift+Z" disabled>↷</button>
-    <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button>
+    <button class="btn" type="button" id="dailyToggleEdit">셀 편집</button><button class="btn primary" type="button" id="dailySaveAll" title="저장하기 (Ctrl/⌘+S)" disabled>저장하기</button><button class="btn" type="button" id="dailyResetLayout" hidden style="color:#a11">초기화</button>
    </div>
    <div class="daily-mini-status" id="dailyStatus" role="status" hidden></div>
    <div class="daily-input-row">
@@ -1192,7 +1192,7 @@ const PAGE = `<!doctype html>
    if(role==='time'){const i=g.info;return {value:i?(i.start||'—')+' ~ '+(i.end||'—'):'시간 미설정'}}
    return {value:g.people.map(x=>x.name).join(' · '),people:g.people};
   }
-  return {value:Object.prototype.hasOwnProperty.call(dailyOverrides,key)?dailyOverrides[key]:cell.text||''};
+  return {value:dailyTemplate.freeLayout&&!role?cell.text||'':Object.prototype.hasOwnProperty.call(dailyOverrides,key)?dailyOverrides[key]:cell.text||''};
  }
  function dailyTableHtml(edit){
   const t=dailyTemplate,w=t.widths,h=t.heights,roles=dailyRoles(),groups=dailyGroups();
@@ -1209,7 +1209,7 @@ const PAGE = `<!doctype html>
     const cell=dailyCell(r,c);
     if(cell.r!==r||cell.c!==c){occupied.add(dailyKey(r,c));continue}
     for(let rr=r;rr<r+cell.rs;rr++)for(let cc=c;cc<c+cell.cs;cc++)if(rr!==r||cc!==c)occupied.add(dailyKey(rr,cc));
-    const dat=dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
+    const dat=edit?{value:cell.text||''}:dailyValue(cell,roles,groups),role=cell.role||'',borders=cell.borders||{};
     const sides=[['t','top'],['r','right'],['b','bottom'],['l','left']];
     const borderStyle=sides.map(([key,side])=>{const n=Number.isInteger(borders[key])&&borders[key]>=0&&borders[key]<=3?borders[key]:1;return 'border-'+side+':'+n+'px '+(n?'solid #222':'none transparent')+';'}).join('');
     const style='font-size:'+Math.max(9,Math.min(42,cell.fontSize||13))+'px;font-weight:'+(cell.bold?'700':'400')+';text-align:'+(cell.align==='left'||cell.align==='right'?cell.align:'center')+';'+borderStyle;
@@ -1222,7 +1222,7 @@ const PAGE = `<!doctype html>
   }
   return out+'</tbody>';
  }
- function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
+ function dailyPaint(){dailyFitA4Widths(dailyTemplate);if(!Array.isArray(dailyTemplate.rightHeights))dailyTemplate.rightHeights=[dailyTemplate.heights[0],dailyTemplate.heights[1],dailyTemplate.heights.slice(2,-1).reduce((a,b)=>a+b,0),dailyTemplate.heights.at(-1)];dailySheet.innerHTML='<table class="daily-grid'+(dailyEditing?' edit-mode':'')+'">'+dailyTableHtml(dailyEditing)+'</table>';dailySheet.classList.toggle('edit-mode',dailyEditing);dailySheet.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);for(const table of dailySheet.querySelectorAll('table'))table.classList.toggle('resize-armed',dailyEditing&&dailyResizeArmed);dailyWrap.classList.toggle('editing',dailyEditing);$('dailyResetLayout').hidden=!dailyEditing;$('dailyEditTools').hidden=!dailyEditing;$('dailyContentTools').hidden=dailyEditing;$('dailyCodeEditor').hidden=dailyEditing;$('dailyToggleEdit').textContent=dailyEditing?'내용 입력':'셀 편집';$('dailyToggleEdit').classList.toggle('content-return',dailyEditing);$('dailyDate').value=dailyDateValue;dailyPaintSelection();dailyPeopleOptions();dailySaveButtons()}
  function dailyPaintSelection(){const cell=dailyCell(dailySelected.r,dailySelected.c);
   let coord=dailyColLabel(cell.c)+(cell.r+1)+(dailyRange?' ~ '+dailyColLabel(dailyRange.c2)+(dailyRange.r2+1):'');
   if(dailyChosenCols.size)coord=[...dailyChosenCols].sort((a,b)=>a-b).map(dailyColLabel).join(' · ')+' 열';
@@ -1233,7 +1233,7 @@ const PAGE = `<!doctype html>
   $('dailyFontSize').value=cell.fontSize||13;$('dailyBold').checked=!!cell.bold;$('dailyAlign').textContent='정렬: '+({left:'왼쪽',center:'가운데',right:'오른쪽'}[cell.align]||'가운데');$('dailyColWidth').value=dailyTemplate.widths[cell.c];$('dailyRowHeight').value=dailyTemplate.heights[cell.r];
   for(const el of dailySheet.querySelectorAll('td[data-r]')){const r=+el.dataset.r,c=+el.dataset.c,inside=dailyRange&&r>=dailyRange.r1&&r<=dailyRange.r2&&c>=dailyRange.c1&&c<=dailyRange.c2;
    el.classList.toggle('selected',r===cell.r&&c===cell.c);
-   el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan)&&!(c>=3&&[...dailyChosenRows].every(row=>row>=2&&row<dailyTemplate.heights.length-1)));
+   el.classList.toggle('in-range',!!inside||dailyChosenCols.size>0&&[...dailyChosenCols].some(col=>col>=c&&col<c+el.colSpan)||dailyChosenRows.size>0&&[...dailyChosenRows].some(row=>row>=r&&row<r+el.rowSpan));
    el.classList.toggle('multi-selected',dailyMarkedCells.has(dailyKey(r,c)));
   }
   for(const th of dailySheet.querySelectorAll('thead th[data-col]'))th.classList.toggle('col-picked',dailyChosenCols.has(+th.dataset.col));
@@ -1321,12 +1321,12 @@ const PAGE = `<!doctype html>
  function dailySplit(){const cell=dailyCell(dailySelected.r,dailySelected.c);if(cell.rs===1&&cell.cs===1)return;dailyRemember();const entry=dailyEntry(cell.r,cell.c);entry.rs=1;entry.cs=1;dailyRange=null;dailyDirtyMark(true);dailyPaint()}
  function dailyHasContentOn(axis,index){const row=axis==='row';
   if(dailyTemplate.cells.some(x=>{const start=row?x.r:x.c,len=row?x.rs:x.cs;return index>=start&&index<start+len&&(!!(x.text||'').trim()||!!x.role)}))return true;
-  if(Object.entries(dailyOverrides).some(([k,v])=>{const [r,c]=k.split(',').map(Number);return !!String(v).trim()&&(row?r===index:c===index)}))return true;
+  if(!dailyTemplate.freeLayout&&Object.entries(dailyOverrides).some(([k,v])=>{const [r,c]=k.split(',').map(Number);return !!String(v).trim()&&(row?r===index:c===index)}))return true;
   return false;
  }
  function dailyChangeDimension(axis,add){const row=axis==='row',sizes=row?dailyTemplate.heights:dailyTemplate.widths,limit=row?70:20,min=row?4:3,pos=row?'r':'c',span=row?'rs':'cs',chosen=row?dailyChosenRows:dailyChosenCols;
   if(dailySaving)return;
-  if(row&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1&&!dailyChosenRows.size){
+  if(!dailyTemplate.freeLayout&&row&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1&&!dailyChosenRows.size){
    const count=dailyTemplate.cells.filter(x=>x.c===0&&x.role==='code'&&x.r>=2&&x.r<dailyTemplate.heights.length-1).length;
    dailyFitLeftRows(count+(add?1:-1));return;
   }
@@ -1403,7 +1403,7 @@ const PAGE = `<!doctype html>
  }
  function dailyEqualizeRows(){
   if(dailySaving)return;
-  if(!dailyChosenCols.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1){if(dailyEqualizeLeftRows())return;return alert('선택 영역에 균등 배분할 수 있는 셀이 2개 이상 필요합니다. A~C의 같은 행 경계를 선택하세요.');}
+  if(!dailyTemplate.freeLayout&&!dailyChosenCols.size&&dailySelected.c<3&&dailySelected.r>=2&&dailySelected.r<dailyTemplate.heights.length-1){if(dailyEqualizeLeftRows())return;return alert('선택 영역에 균등 배분할 수 있는 셀이 2개 이상 필요합니다. A~C의 같은 행 경계를 선택하세요.');}
   const heights=dailyTemplate.heights;
   const selected=new Set();
   const addRows=(cell)=>{for(let r=cell.r;r<cell.r+cell.rs;r++)if(r>=0&&r<heights.length)selected.add(r)};
@@ -1438,22 +1438,22 @@ const PAGE = `<!doctype html>
   if(targets.every(i=>sizes[i]===n))return;
   dailyRemember();for(const i of targets)sizes[i]=n;dailyDirtyMark(true);dailyPaint();
 }
- function dailyMigrateTemplate(t){if(!t||!Array.isArray(t.cells))t=freshDailyTemplate();if(!Array.isArray(t.rightHeights))t.rightHeights=[t.heights[0],t.heights[1],t.heights.slice(2,-1).reduce((a,b)=>a+b,0),t.heights.at(-1)];if(!t.cells.some(x=>x.role)&&t.widths.length===6&&t.cells.some(x=>x.r===1&&x.c===2&&x.text==='근무자 명단')){
+ function dailyMigrateTemplate(t){if(!t||!Array.isArray(t.cells))t=freshDailyTemplate();if(!Array.isArray(t.rightHeights))t.rightHeights=[t.heights[0],t.heights[1],t.heights.slice(2,-1).reduce((a,b)=>a+b,0),t.heights.at(-1)];if(!t.freeLayout&&!t.cells.some(x=>x.role)&&t.widths.length===6&&t.cells.some(x=>x.r===1&&x.c===2&&x.text==='근무자 명단')){
    const mark=(r,c,role)=>{const e=t.cells.find(x=>r>=x.r&&r<x.r+x.rs&&c>=x.c&&c<x.c+x.cs);if(e){if(e.r===r&&e.c===c&&(!e.text||role==='date'))e.role=role}else t.cells.push({r:r,c:c,rs:1,cs:1,text:'',role:role})};
    mark(0,3,'date');mark(2,3,'leave');mark(2,4,'annual');mark(2,5,'shared');for(let r=2;r<Math.min(23,t.heights.length-1);r++)for(let c=0;c<3;c++)mark(r,c,['code','time','names'][c]);
   }dailyFitA4Widths(t);return t}
  function dailyFitA4Widths(t){
   // 748px printable width less 37px editor row-number gutter.
   const limit=711,old=t.widths;
-  if(!Array.isArray(old)||old.length!==6)return false;
+  if(!Array.isArray(old)||(!t.freeLayout&&old.length!==6))return false;
   const total=old.reduce((a,b)=>a+Number(b||0),0);
   if(total<=limit)return false;
-  const minimum=[42,65,180,55,55,55];
+  const minimum=t.freeLayout?old.map(()=>Math.min(42,Math.floor(limit/old.length))):[42,65,180,55,55,55];
   let widths=old.map((v,i)=>Math.max(minimum[i],Math.floor(v*limit/total)));
   while(widths.reduce((a,b)=>a+b,0)>limit){let idx=widths.reduce((best,v,i)=>v-minimum[i]>widths[best]-minimum[best]?i:best,0);if(widths[idx]<=minimum[idx])break;widths[idx]--}
   t.widths=widths;return true;
  }
- async function dailyLoad(){if(dailyLoading||dailyLoaded)return;dailyLoading=true;$('dailyStatus').textContent='양식 불러오는 중…';try{const res=await fetch('/api/daily-template',{credentials:'same-origin'}),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'양식 읽기 실패');const legacy=!!(body.template&&!body.template.cells.some(x=>x.role));dailyTemplate=dailyMigrateTemplate(body.template);dailyLoaded=true;dailyDirty=legacy||!!(body.template&&body.template.widths&&body.template.widths.reduce((a,b)=>a+b,0)>711);dailyHistoryClear();$('dailyStatus').textContent=legacy?'기존 양식을 변환했습니다 · 공통 양식을 저장하세요':'';dailyPaint()}catch(e){$('dailyStatus').textContent=e.message}finally{dailyLoading=false}}
+ async function dailyLoad(){if(dailyLoading||dailyLoaded)return;dailyLoading=true;$('dailyStatus').textContent='양식 불러오는 중…';try{const res=await fetch('/api/daily-template',{credentials:'same-origin'}),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'양식 읽기 실패');const legacy=!!(body.template&&!body.template.freeLayout&&!body.template.cells.some(x=>x.role));dailyTemplate=dailyMigrateTemplate(body.template);dailyLoaded=true;dailyDirty=legacy||!!(body.template&&body.template.widths&&body.template.widths.reduce((a,b)=>a+b,0)>711);dailyHistoryClear();$('dailyStatus').textContent=legacy?'기존 양식을 변환했습니다 · 공통 양식을 저장하세요':'';dailyPaint()}catch(e){$('dailyStatus').textContent=e.message}finally{dailyLoading=false}}
  async function dailyLoadDay(){const seq=++dailyFetchSeq;const date=dailyDateValue;$('dailyStatus').textContent='일간 근무표 불러오는 중…';try{const res=await fetch('/api/daily-day?date='+encodeURIComponent(date),{credentials:'same-origin'}),body=await res.json();if(!res.ok||!body.ok)throw Error(body.error||'일간 근무표 읽기 실패');if(seq!==dailyFetchSeq)return;dailyDay=body;dailyOverrides=body.overrides||{};dailyOriginalCodes=Object.fromEntries((body.shifts||[]).map(x=>[x.employee_id,x.code||'']));dailyPendingCodes={};dailyDayDirty=false;dailyHistoryClear();$('dailyStatus').textContent='';dailyPaint()}catch(e){if(seq===dailyFetchSeq)$('dailyStatus').textContent=e.message}}
  function dailyPeopleOptions(){if(dailyEditing)return;const sel=$('dailyEmployeeSelect'),old=sel.value;sel.innerHTML='<option value="">직원 선택</option>'+dailyDay.people.map(p=>'<option value="'+text(p.id)+'">'+text(p.name)+'</option>').join('');if(dailyDay.people.some(p=>p.id===old)){sel.value=old;$('dailyEmployeeSearch').value=dailyDay.people.find(p=>p.id===old).name}else if(old){sel.value='';$('dailyEmployeeSearch').value=''}dailyCodeOptions()}
  function dailyCloseEmployeeSuggestions(){const list=$('dailyEmployeeSuggestions');list.hidden=true;list.innerHTML='';$('dailyEmployeeSearch').setAttribute('aria-expanded','false')}
@@ -1621,6 +1621,7 @@ const PAGE = `<!doctype html>
  $('dailyAddCol').addEventListener('click',()=>dailyChangeDimension('col',true));$('dailyRemoveCol').addEventListener('click',()=>dailyChangeDimension('col',false));
  $('dailyMerge').addEventListener('click',dailyMerge);$('dailySplit').addEventListener('click',dailySplit);$('dailyEqualizeRows').addEventListener('click',dailyEqualizeRows);
  $('dailyUndo').addEventListener('click',dailyUndo);$('dailyRedo').addEventListener('click',dailyRedo);
+ $('dailyResetLayout').addEventListener('click',()=>{if(!dailyEditing||dailySaving||dailyLoading)return;if(!confirm('공통 양식의 셀, 글자, 병합 및 역할을 초기화할까요? 실제 근무 데이터는 유지됩니다.'))return;dailyRemember();dailyTemplate={freeLayout:true,widths:[119,119,119,118,118,118],heights:Array.from({length:24},()=>42),cells:[]};dailySelected={r:0,c:0};dailyAnchor={r:0,c:0};dailyRange=null;dailyMarkedCells.clear();dailyChosenCols.clear();dailyChosenRows.clear();dailyResizeArmed=false;dailyDirtyMark(true);dailyPaint()});
  $('dailySaveAll').addEventListener('click',dailySaveAll);
  $('dailyEmployeeSearch').addEventListener('input',dailyRefreshEmployeeSuggestions);
  $('dailyEmployeeSearch').addEventListener('compositionend',dailyRefreshEmployeeSuggestions);
