@@ -281,7 +281,7 @@ const PAGE = `<!doctype html>
 /* A resize handle does not exist as a hit target until its cell or header is explicitly selected. */
 .daily-grid.edit-mode .col-resize{display:none;position:absolute;top:0;right:0px;width:7px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .daily-grid.edit-mode .row-resize{display:none;position:absolute;left:0;right:7px;bottom:0px;height:7px;cursor:row-resize;z-index:5;touch-action:none}
-.daily-grid.edit-mode th[data-col],.daily-grid.edit-mode th[data-row]{overflow:visible}.daily-grid.edit-mode th[data-col]>.col-resize,.daily-grid.edit-mode th[data-row]>.row-resize{display:block;background:transparent;z-index:20}.daily-grid.edit-mode th[data-col]>.col-resize{width:20px;right:-10px}.daily-grid.edit-mode th[data-row]>.row-resize{height:18px;bottom:-9px;right:0}.daily-grid.edit-mode th[data-col]:has(>.col-resize),.daily-grid.edit-mode th[data-row]:has(>.row-resize){z-index:6}
+.daily-grid.edit-mode th[data-col],.daily-grid.edit-mode th[data-row]{overflow:visible}.daily-grid.edit-mode th[data-col]>.col-resize,.daily-grid.edit-mode th[data-row]>.row-resize{display:block;background:transparent;z-index:20;pointer-events:none}.daily-grid.edit-mode th[data-col]>.col-resize{width:20px;right:-10px}.daily-grid.edit-mode th[data-row]>.row-resize{height:18px;bottom:-9px;right:0}.daily-grid.edit-mode th[data-col]:has(>.col-resize),.daily-grid.edit-mode th[data-row]:has(>.row-resize){z-index:6}
 .daily-grid.edit-mode .col-resize:hover::after,.daily-grid.edit-mode .row-resize:hover::after{content:none}
 .daily-grid.edit-mode .col-resize:hover::after{width:2px;top:0;bottom:0;right:4px}
 .daily-grid.edit-mode .row-resize:hover::after{height:2px;left:0;right:0;bottom:4px}
@@ -1550,11 +1550,16 @@ const PAGE = `<!doctype html>
   if((e.key==='F2'||e.key.length===1&&!e.ctrlKey&&!e.metaKey&&!e.altKey)&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailyBeginInlineEdit(e.key==='F2'?null:e.key)}
   if((e.key==='Backspace'||e.key==='Delete')&&(!dailyCell(dailySelected.r,dailySelected.c).role||dailyCell(dailySelected.r,dailySelected.c).role==='shared')){e.preventDefault();dailySetText('')}
  }
- function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('th[data-col]>.col-resize,th[data-row]>.row-resize'),rightRowGrip=false,td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
+ function dailyPointerStart(e){if(!dailyEditing||dailySaving)return;const grip=e.target.closest('th[data-col]>.col-resize,th[data-row]>.row-resize'),td=e.target.closest('td[data-r]'),headCol=e.target.closest('th[data-col]'),headRow=e.target.closest('th[data-row]');if(!grip&&!td&&!headCol&&!headRow)return;
   e.preventDefault();e.stopPropagation();dailySheet.focus({preventScroll:true});const multi=e.ctrlKey||e.metaKey;
-  if(grip){const isCol=grip.classList.contains('col-resize'),axis=isCol?'col':rightRowGrip?'right-row':'row',index=rightRowGrip?(+grip.dataset.row>=2&&+grip.dataset.row<dailyTemplate.heights.length-1?2:+grip.dataset.row===dailyTemplate.heights.length-1?3:+grip.dataset.row):+grip.dataset[isCol?'col':'row'];
-   if(e.altKey){dailySelectHeader(axis,index,false,multi)}
-   dailyPointer={id:e.pointerId,mode:'resize',axis,index,start:isCol?e.clientX:e.clientY,size:isCol?dailyTemplate.widths[index]:rightRowGrip?dailyTemplate.rightHeights[index]:dailyTemplate.heights[index]};
+  let resize=null;
+  if(grip){const col=grip.classList.contains('col-resize'),axis=col?'col':'row';resize={axis,index:+grip.dataset[axis]}}
+  else if(headCol||headRow){const col=!!headCol,head=headCol||headRow,axis=col?'col':'row',rect=head.getBoundingClientRect(),pos=col?e.clientX:e.clientY,center=col?(rect.left+rect.right)/2:(rect.top+rect.bottom)/2;
+   const half=Math.min(col?12:10,(col?rect.width:rect.height)*.32);
+   if(Math.abs(pos-center)>half){let index=+head.dataset[axis];if(pos<center)index--;else if(!col)index=+head.querySelector('.row-resize').dataset.row;if(index>=0)resize={axis,index};else return}
+  }
+  if(resize){const {axis,index}=resize,col=axis==='col';
+   dailyPointer={id:e.pointerId,mode:'resize',axis,index,start:col?e.clientX:e.clientY,size:(col?dailyTemplate.widths:dailyTemplate.heights)[index]};
   }else if(headCol||headRow){const axis=headCol?'col':'row',index=+(headCol||headRow).dataset[axis];dailySelectHeader(axis,index,e.shiftKey,multi);dailyPointer={id:e.pointerId,mode:'header',axis,locked:multi}}
   else{const r=+td.dataset.r,c=+td.dataset.c;
    if(e.altKey){const axis=e.shiftKey?'row':'col',index=axis==='col'?c:r;dailySelectHeader(axis,index,false,multi);dailyPointer={id:e.pointerId,mode:'header',axis,locked:multi}}
