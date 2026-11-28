@@ -348,6 +348,7 @@ const PAGE = `<!doctype html>
 #peopleView .staff-check input{width:20px;height:20px;margin:0;vertical-align:middle;accent-color:#2b69a7}
 #peopleView .people-table td:last-child{width:1%;white-space:nowrap}
 #peopleView .people-table .btn{font-size:12px;min-height:29px;padding:4px 6px;margin-left:3px}
+@media print{#scheduleView tr.admin-input-only{display:none!important}}
 </style>
 </head>
 <body>
@@ -563,7 +564,7 @@ const PAGE = `<!doctype html>
  function draw(){applySpecialColors();validDay();$('monthTitle').textContent=state.year+'년 '+(state.month+1)+'월';$('deadline').value=state.deadlines[state.year+'-'+two(state.month+1)]||'';$('leaveCapacity').value=state.leaveLimits[state.year+'-'+two(state.month+1)]??'';
  let h='<thead><tr><th class="n">번호</th><th class="who"></th>';
  for(let d=1;d<=days();d++){const w=new Date(state.year,state.month,d).getDay();h+='<th class="d '+(w===0?'sun':w===6?'sat':'')+'" data-day="'+d+'" title="휴무 목록 보기">'+d+' '+['일','월','화','수','목','금','토'][w]+'</th>'}
- h+='<th class="hours">월 근무시간</th></tr><tr class="counts"><th class="n"></th><th class="who"></th>';
+ h+='<th class="hours">월 근무시간</th></tr><tr class="counts admin-input-only"><th class="n"></th><th class="who"></th>';
  for(let d=1;d<=days();d++)h+='<th class="d" id="count-'+d+'" data-day="'+d+'">'+counts(d)+'</th>';
  h+='<th class="hours"></th></tr></thead><tbody>';
  state.people.forEach((p,i)=>{h+='<tr><td class="n">'+(i+1)+'</td><td class="who">'+text(p.name)+'</td>';
