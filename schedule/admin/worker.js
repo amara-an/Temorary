@@ -339,6 +339,15 @@ const PAGE = `<!doctype html>
 .rail button:has(.rail-keycap){display:flex;align-items:center;justify-content:center}
 .rail-keycap{display:inline-flex;align-items:center;justify-content:center;font-family:system-ui,"Apple SD Gothic Neo",sans-serif;font-size:18px;font-weight:750;line-height:1;color:inherit;border:2px solid currentColor;border-radius:5px;width:29px;height:29px;box-sizing:border-box}
 @media(max-width:600px){.rail-keycap{width:24px;height:24px;font-size:15px}.rail button:has(.rail-keycap){min-width:36px;padding:6px 4px}}
+#peopleView .people-table{min-width:540px;font-size:15px}
+#peopleView .people-table th,#peopleView .people-table td{padding:5px 7px}
+#peopleView .people-table td:first-child{width:40px}
+#peopleView .people-table th:nth-child(2),#peopleView .people-table td:nth-child(2){min-width:85px;white-space:nowrap}
+#peopleView .people-table .staff-custom{min-width:65px;width:85px;text-align:center}
+#peopleView .people-table .staff-head-input{min-height:30px;padding:4px;font-size:14px;text-align:center}
+#peopleView .staff-check input{width:20px;height:20px;margin:0;vertical-align:middle;accent-color:#2b69a7}
+#peopleView .people-table td:last-child{width:1%;white-space:nowrap}
+#peopleView .people-table .btn{font-size:12px;min-height:29px;padding:4px 6px;margin-left:3px}
 </style>
 </head>
 <body>
@@ -475,13 +484,7 @@ const PAGE = `<!doctype html>
         <input id="personName" type="text" autocomplete="off" maxlength="40" placeholder="이름 입력" aria-label="직원 이름">
         <div class="people-actions"><button class="btn primary" id="savePerson">직원 등록</button><button class="btn" id="resetPerson">입력 지우기</button></div>
       </section>
-      <section class="panel people-editor" id="staffGroupPanel">
-<h2>그룹 관리</h2><select id="staffGroupSelect" aria-label="그룹 선택" style="width:100%;min-height:40px"></select>
-<label for="staffGroupName">그룹 이름</label><input id="staffGroupName" maxlength="40" placeholder="그룹 이름">
-<div class="people-actions"><button class="btn" id="staffGroupNew">새 그룹</button><button class="btn primary" id="staffGroupSave">저장</button><button class="btn" id="staffGroupDelete">삭제</button></div>
-<div id="staffGroupMembers" style="max-height:380px;overflow:auto;margin-top:12px"></div>
-</section>
-<section class="panel people-editor" id="passkeyPanel" hidden>
+      <section class="panel people-editor" id="passkeyPanel" hidden>
         <div class="pk-header"><h2>패스키 관리</h2><button class="btn" id="closePasskey" type="button">닫기</button></div>
         <div class="pk-person" id="pkPersonName"></div>
         <div class="pk-status">등록 상태: <b>확인 불가</b><br>현재는 화면 시연판입니다. 실제 패스키 등록·초기화는 아직 연결되지 않았습니다.</div>
@@ -973,7 +976,7 @@ const PAGE = `<!doctype html>
  $('closePasskey').addEventListener('click',closePasskey);
  function customCell(person,j){
    const value=Array.isArray(person.customFields)?person.customFields[j]||'':'';
-   return '<td class="staff-custom"><input class="staff-value-input" type="text" autocomplete="off" maxlength="80" value="'+text(value)+'" data-staff-id="'+text(person.id)+'" data-column="'+j+'" aria-label="'+text(person.name)+' 분류 '+(j+1)+'"'+(!dbReady?' disabled':'')+'></td>';
+   return '<td class="staff-custom staff-check"><input type="checkbox" '+(value?'checked':'')+' data-staff-id="'+text(person.id)+'" data-column="'+j+'" aria-label="'+text(person.name)+' 그룹 '+(j+1)+'"'+(!dbReady?' disabled':'')+'></td>';
  }
  function showStaffAccess(loginId,accessCode){
    $('staffLoginId').value=loginId;
@@ -996,29 +999,6 @@ const PAGE = `<!doctype html>
      const h=$('staffHeader'+j);h.value=String(state.staffColumnHeaders[j]||'');h.disabled=!dbReady;
    }
  }
- let staffGroups=[],staffGroupId='';
- function paintStaffGroups(){
-   const g=staffGroups.find(x=>x.id===staffGroupId);if(!g)staffGroupId='';
-   $('staffGroupSelect').innerHTML='<option value="">새 그룹</option>'+staffGroups.map(x=>'<option value="'+text(x.id)+'">'+text(x.name)+' ('+x.members.filter(id=>state.people.some(p=>p.id===id)).length+'명)</option>').join('');
-   $('staffGroupSelect').value=staffGroupId;$('staffGroupName').value=g?.name||'';
-   $('staffGroupMembers').innerHTML=state.people.map(p=>'<label style="display:flex;align-items:center;gap:10px;min-height:40px;font-size:15px"><input type="checkbox" style="width:20px;height:20px" value="'+text(p.id)+'" '+(g?.members.includes(p.id)?'checked':'')+'>'+text(p.name)+'</label>').join('');
-   $('staffGroupDelete').disabled=!g;
- }
- $('staffGroupSelect').addEventListener('change',e=>{staffGroupId=e.target.value;paintStaffGroups()});
- $('staffGroupNew').addEventListener('click',()=>{staffGroupId='';paintStaffGroups();$('staffGroupName').focus()});
- async function saveStaffGroups(remove){
-   if(!checkDbReady())return;
-   const name=$('staffGroupName').value.trim(),id=staffGroupId||crypto.randomUUID();
-   if(remove&&!staffGroupId)return;
-   if(remove&&!confirm('이 그룹을 삭제할까요? 직원 정보는 유지됩니다.'))return;
-   if(!remove&&!name){alert('그룹 이름을 입력하세요.');return}
-   const members=[...$('staffGroupMembers').querySelectorAll('input:checked')].map(x=>x.value);
-   dbBusy=true;
-   try{const result=await dbCall('/api/staff-groups',{method:'PUT',body:JSON.stringify({id,name,members,remove})});staffGroups=result.groups;staffGroupId=remove?'':id;paintStaffGroups()}
-   catch(e){alert('그룹 저장 실패: '+e.message)}finally{dbBusy=false}
- }
- $('staffGroupSave').addEventListener('click',()=>saveStaffGroups(false));
- $('staffGroupDelete').addEventListener('click',()=>saveStaffGroups(true));
  async function loadEmployees(){
    dbStatus('D1 직원 명단 읽는 중…',false);
    try{
@@ -1026,7 +1006,6 @@ const PAGE = `<!doctype html>
      const people=payload.people.map(p=>({id:p.id,name:p.name,customFields:[p.custom1||'',p.custom2||'']}));
      state.people=people;
      state.staffColumnHeaders=payload.headers;
-     staffGroups=payload.groups||[];paintStaffGroups();
      dbReady=true;
      if(personEditing&&!people.some(p=>p.id===personEditing))resetPerson();
      if(passkeyPersonId&&!people.some(p=>p.id===passkeyPersonId))closePasskey();
@@ -1062,13 +1041,13 @@ const PAGE = `<!doctype html>
    const input=e.target.closest('input[data-staff-id][data-column]');
    if(!input||!checkDbReady())return;
    const p=state.people.find(x=>x.id===input.dataset.staffId);if(!p)return;
-   const j=Number(input.dataset.column),value=input.value,old=String(p.customFields[j]||'');
+   const j=Number(input.dataset.column),value=input.checked?'1':'',old=String(p.customFields[j]||'');
    if(value===old)return;
    input.disabled=true;
    try{
      await dbCall('/api/employees/'+encodeURIComponent(p.id),{method:'PATCH',body:JSON.stringify({[j===0?'custom1':'custom2']:value})});
      p.customFields[j]=value;persist();dbStatus('D1 저장 완료 · '+p.name+' 분류 '+(j+1),false);
-   }catch(error){input.value=old;dbStatus('분류 저장 실패: '+error.message,true);alert('D1 저장 실패: '+error.message)}
+   }catch(error){input.checked=!!old;dbStatus('분류 저장 실패: '+error.message,true);alert('D1 저장 실패: '+error.message)}
    finally{input.disabled=false}
  });
  $('peopleRows').addEventListener('click',async e=>{
