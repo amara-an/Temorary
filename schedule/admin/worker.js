@@ -475,7 +475,13 @@ const PAGE = `<!doctype html>
         <input id="personName" type="text" autocomplete="off" maxlength="40" placeholder="이름 입력" aria-label="직원 이름">
         <div class="people-actions"><button class="btn primary" id="savePerson">직원 등록</button><button class="btn" id="resetPerson">입력 지우기</button></div>
       </section>
-      <section class="panel people-editor" id="passkeyPanel" hidden>
+      <section class="panel people-editor" id="staffGroupPanel">
+<h2>그룹 관리</h2><select id="staffGroupSelect" aria-label="그룹 선택" style="width:100%;min-height:40px"></select>
+<label for="staffGroupName">그룹 이름</label><input id="staffGroupName" maxlength="40" placeholder="그룹 이름">
+<div class="people-actions"><button class="btn" id="staffGroupNew">새 그룹</button><button class="btn primary" id="staffGroupSave">저장</button><button class="btn" id="staffGroupDelete">삭제</button></div>
+<div id="staffGroupMembers" style="max-height:380px;overflow:auto;margin-top:12px"></div>
+</section>
+<section class="panel people-editor" id="passkeyPanel" hidden>
         <div class="pk-header"><h2>패스키 관리</h2><button class="btn" id="closePasskey" type="button">닫기</button></div>
         <div class="pk-person" id="pkPersonName"></div>
         <div class="pk-status">등록 상태: <b>확인 불가</b><br>현재는 화면 시연판입니다. 실제 패스키 등록·초기화는 아직 연결되지 않았습니다.</div>
@@ -990,6 +996,29 @@ const PAGE = `<!doctype html>
      const h=$('staffHeader'+j);h.value=String(state.staffColumnHeaders[j]||'');h.disabled=!dbReady;
    }
  }
+ let staffGroups=[],staffGroupId='';
+ function paintStaffGroups(){
+   const g=staffGroups.find(x=>x.id===staffGroupId);if(!g)staffGroupId='';
+   $('staffGroupSelect').innerHTML='<option value="">새 그룹</option>'+staffGroups.map(x=>'<option value="'+text(x.id)+'">'+text(x.name)+' ('+x.members.filter(id=>state.people.some(p=>p.id===id)).length+'명)</option>').join('');
+   $('staffGroupSelect').value=staffGroupId;$('staffGroupName').value=g?.name||'';
+   $('staffGroupMembers').innerHTML=state.people.map(p=>'<label style="display:flex;align-items:center;gap:10px;min-height:40px;font-size:15px"><input type="checkbox" style="width:20px;height:20px" value="'+text(p.id)+'" '+(g?.members.includes(p.id)?'checked':'')+'>'+text(p.name)+'</label>').join('');
+   $('staffGroupDelete').disabled=!g;
+ }
+ $('staffGroupSelect').addEventListener('change',e=>{staffGroupId=e.target.value;paintStaffGroups()});
+ $('staffGroupNew').addEventListener('click',()=>{staffGroupId='';paintStaffGroups();$('staffGroupName').focus()});
+ async function saveStaffGroups(remove){
+   if(!checkDbReady())return;
+   const name=$('staffGroupName').value.trim(),id=staffGroupId||crypto.randomUUID();
+   if(remove&&!staffGroupId)return;
+   if(remove&&!confirm('이 그룹을 삭제할까요? 직원 정보는 유지됩니다.'))return;
+   if(!remove&&!name){alert('그룹 이름을 입력하세요.');return}
+   const members=[...$('staffGroupMembers').querySelectorAll('input:checked')].map(x=>x.value);
+   dbBusy=true;
+   try{const result=await dbCall('/api/staff-groups',{method:'PUT',body:JSON.stringify({id,name,members,remove})});staffGroups=result.groups;staffGroupId=remove?'':id;paintStaffGroups()}
+   catch(e){alert('그룹 저장 실패: '+e.message)}finally{dbBusy=false}
+ }
+ $('staffGroupSave').addEventListener('click',()=>saveStaffGroups(false));
+ $('staffGroupDelete').addEventListener('click',()=>saveStaffGroups(true));
  async function loadEmployees(){
    dbStatus('D1 직원 명단 읽는 중…',false);
    try{
@@ -997,6 +1026,7 @@ const PAGE = `<!doctype html>
      const people=payload.people.map(p=>({id:p.id,name:p.name,customFields:[p.custom1||'',p.custom2||'']}));
      state.people=people;
      state.staffColumnHeaders=payload.headers;
+     staffGroups=payload.groups||[];paintStaffGroups();
      dbReady=true;
      if(personEditing&&!people.some(p=>p.id===personEditing))resetPerson();
      if(passkeyPersonId&&!people.some(p=>p.id===passkeyPersonId))closePasskey();
@@ -1801,6 +1831,10 @@ async function ensureNovemberSampleSeed(db){
   await novemberSampleSeedPending;
 }
 
+async function readStaffGroups(db){
+ const row=await db.prepare("SELECT value FROM app_settings WHERE key='staff_groups'").first();
+ try{const groups=JSON.parse(row?.value||'[]');return Array.isArray(groups)?groups:[]}catch{return []}
+}
 async function employeeApi(request,env,url){
   const method=request.method,path=url.pathname,db=env.DB;
   if(!db)return json({ok:false,stage:'binding_missing'},503);
@@ -1931,7 +1965,7 @@ async function employeeApi(request,env,url){
     const row=await db.prepare("SELECT value FROM app_settings WHERE key = 'staff_headers'").first();
     let headers=['',''];
     if(row){try{const h=JSON.parse(row.value);if(Array.isArray(h)&&h.length===2)headers=h.map(v=>String(v||'').slice(0,30))}catch(_){}}
-    return json({ok:true,people:result.results||[],headers});
+    return json({ok:true,people:result.results||[],headers,groups:await readStaffGroups(db)});
   }
   if(path==='/api/employees'&&method==='POST'){
     const body=await readJson(request),name=cleanText(body.name,40)?.trim();
@@ -1944,6 +1978,21 @@ async function employeeApi(request,env,url){
     ]);
     const credential=await issueStaffAccess(db,id);
     return json({ok:true,id,name,...credential},201);
+  }
+  if(path==='/api/staff-groups'&&method==='PUT'){
+    const b=await readJson(request);
+    if(typeof b.id!=='string'||!/^[a-zA-Z0-9-]{1,80}$/.test(b.id))return json({ok:false,error:'그룹 ID 오류'},400);
+    const groups=await readStaffGroups(db),next=groups.filter(g=>g.id!==b.id);
+    if(b.remove!==true){
+      const name=cleanText(b.name,40)?.trim();
+      if(!name||!Array.isArray(b.members)||b.members.some(id=>typeof id!=='string'))return json({ok:false,error:'그룹 입력 오류'},400);
+      const rows=await db.prepare('SELECT id FROM employees WHERE active=1').all(),active=new Set((rows.results||[]).map(p=>p.id));
+      if(b.members.some(id=>!active.has(id)))return json({ok:false,error:'활성 직원만 선택할 수 있습니다.'},400);
+      if(next.some(g=>g.name===name))return json({ok:false,error:'이미 같은 이름의 그룹이 있습니다.'},400);
+      next.push({id:b.id,name,members:[...new Set(b.members)]});
+    }
+    await db.prepare("INSERT INTO app_settings(key,value) VALUES('staff_groups',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").bind(JSON.stringify(next)).run();
+    return json({ok:true,groups:next});
   }
   if(path==='/api/staff-headers'&&method==='PUT'){
     const body=await readJson(request),h=body.headers;
